@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS sequence_flows (
   message TEXT NOT NULL,
   image_url TEXT,
   is_end BOOLEAN NOT NULL DEFAULT false,
+  continue_to_sequence UUID REFERENCES sequences(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(sequence_id, flow_number)

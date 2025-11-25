@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CreateSequenceDialog } from "@/components/sequences/CreateSequenceDialog";
+import { EditSequenceDialog } from "@/components/sequences/EditSequenceDialog";
 import { SequenceCard } from "@/components/sequences/SequenceCard";
 
 interface Sequence {
@@ -21,6 +22,8 @@ const Sequences = () => {
   const [sequences, setSequences] = useState<Sequence[]>([]);
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedSequenceId, setSelectedSequenceId] = useState<string>("");
 
   const fetchSequences = async () => {
     try {
@@ -80,15 +83,18 @@ const Sequences = () => {
   };
 
   const handleView = (id: string) => {
-    toast.info("View functionality coming soon");
+    setSelectedSequenceId(id);
+    setEditDialogOpen(true);
   };
 
   const handleUpdate = (id: string) => {
-    toast.info("Update functionality coming soon");
+    setSelectedSequenceId(id);
+    setEditDialogOpen(true);
   };
 
   const handleFlowUpdate = (id: string) => {
-    toast.info("Flow update functionality coming soon");
+    setSelectedSequenceId(id);
+    setEditDialogOpen(true);
   };
 
   if (loading) {
@@ -147,6 +153,15 @@ const Sequences = () => {
         onOpenChange={setCreateDialogOpen}
         onSuccess={fetchSequences}
       />
+
+      {selectedSequenceId && (
+        <EditSequenceDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          onSuccess={fetchSequences}
+          sequenceId={selectedSequenceId}
+        />
+      )}
     </div>
   );
 };
