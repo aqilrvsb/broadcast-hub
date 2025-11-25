@@ -4,18 +4,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 serve(async (req) => {
-  console.log('check-device-status function called, method:', req.method)
-  
+  // Handle CORS preflight - MUST be first, before consuming request
   if (req.method === 'OPTIONS') {
-    console.log('Returning OPTIONS response')
-    return new Response(null, { status: 200, headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders, status: 200 })
   }
 
-  console.log('Processing POST request')
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -106,9 +102,10 @@ serve(async (req) => {
         status,
         data: statusData.data,
         image,
+        qrCode: image,
         message: statusData.message
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
   } catch (error) {
     console.error('Error in check-device-status:', error)
