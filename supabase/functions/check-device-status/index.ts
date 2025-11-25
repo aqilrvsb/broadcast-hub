@@ -1,18 +1,18 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-serve(async (req) => {
-  // Handle CORS preflight - MUST be first, before consuming request
+Deno.serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders, status: 200 })
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
+    // Import Supabase client
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2')
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -26,70 +26,60 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
     
     if (userError || !user) {
-      throw new Error('Unauthorized')
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     const { device_id } = await req.json()
     
     if (!device_id) {
-      throw new Error('Device ID is required')
+      return new Response(
+        JSON.stringify({ success: false, error: 'Device ID is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    const apikey = Deno.env.get('WHACENTER_API_KEY')
-    
-    console.log('Checking device status for:', device_id)
+    console.log('Checking status for device:', device_id)
 
-    // Step 1: Call statusDevice API
+    // Get device status
     const statusUrl = `https://api.whacenter.com/api/statusDevice?device_id=${encodeURIComponent(device_id)}`
-    const statusResponse = await fetch(statusUrl, {
-      method: 'GET',
-      headers: {
-        'accept': 'application/json'
-      }
-    })
-
-    if (!statusResponse.ok) {
-      throw new Error('Failed to get device status')
-    }
-
+    const statusResponse = await fetch(statusUrl)
     const statusData = await statusResponse.json()
+
     console.log('Status response:', statusData)
 
     if (!statusData.status) {
-      throw new Error('Invalid status response')
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to get device status' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     const status = statusData.data?.status || 'NOT CONNECTED'
     let image = null
 
-    // Step 2: If status is NOT CONNECTED, get QR code
+    // Get QR code if not connected
     if (status === 'NOT CONNECTED') {
-      console.log('Device not connected, fetching QR code...')
+      console.log('Getting QR code...')
       
       const qrUrl = `https://api.whacenter.com/api/qr?device_id=${encodeURIComponent(device_id)}`
-      const qrResponse = await fetch(qrUrl, {
-        method: 'GET'
-      })
+      const qrResponse = await fetch(qrUrl)
 
       if (qrResponse.ok) {
         const qrBuffer = await qrResponse.arrayBuffer()
         const headerData = new Uint8Array(qrBuffer.slice(0, 8))
         const headerStr = new TextDecoder().decode(headerData)
         
-        // Check if it's a valid PNG
         if (headerStr.includes('PNG')) {
           const base64 = btoa(String.fromCharCode(...new Uint8Array(qrBuffer)))
           image = `data:image/png;base64,${base64}`
-          console.log('QR code generated successfully')
-        } else {
-          console.error('Invalid QR code format')
         }
-      } else {
-        console.error('Failed to fetch QR code')
       }
     }
 
-    // Step 3: Update device status in database
+    // Update database
     await supabaseClient
       .from('devices')
       .update({ status, updated_at: new Date().toISOString() })
@@ -105,14 +95,14 @@ serve(async (req) => {
         qrCode: image,
         message: statusData.message
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
-    console.error('Error in check-device-status:', error)
+    console.error('Error:', error)
     const message = error instanceof Error ? error.message : 'An error occurred'
     return new Response(
       JSON.stringify({ success: false, error: message }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 })
