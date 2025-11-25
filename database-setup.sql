@@ -59,3 +59,47 @@ create trigger on_auth_user_created
 
 -- Index for faster username lookups
 create index profiles_username_idx on public.profiles(username);
+
+-- Create devices table to store WhatsApp devices
+create table public.devices (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid not null references auth.users on delete cascade,
+  device_name text not null,
+  phone_number text not null,
+  device_id text unique,
+  status text default 'NOT CONNECTED',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable Row Level Security
+alter table public.devices enable row level security;
+
+-- RLS Policies for devices table
+-- Users can view their own devices
+create policy "Users can view own devices"
+  on public.devices
+  for select
+  using (auth.uid() = user_id);
+
+-- Users can insert their own devices
+create policy "Users can insert own devices"
+  on public.devices
+  for insert
+  with check (auth.uid() = user_id);
+
+-- Users can update their own devices
+create policy "Users can update own devices"
+  on public.devices
+  for update
+  using (auth.uid() = user_id);
+
+-- Users can delete their own devices
+create policy "Users can delete own devices"
+  on public.devices
+  for delete
+  using (auth.uid() = user_id);
+
+-- Index for faster device lookups
+create index devices_user_id_idx on public.devices(user_id);
+create index devices_device_id_idx on public.devices(device_id);
