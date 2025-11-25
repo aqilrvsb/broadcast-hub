@@ -1,0 +1,4 @@
+project_id = "hxplutdgulpnzkhdydqh"
+
+[functions.broadcast-message]
+verify_jwt = true
