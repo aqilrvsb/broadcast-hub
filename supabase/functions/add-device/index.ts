@@ -69,18 +69,22 @@ serve(async (req) => {
     const setWebhookUrl = `https://api.whacenter.com/api/setWebhook?device_id=${device_id}&webhook=${encodeURIComponent(webhookUrl)}`;
     await fetch(setWebhookUrl);
 
-    // Save or update device in database
+    // Delete existing device with same name from database
+    await supabaseClient
+      .from('devices')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('device_name', device_name);
+
+    // Insert new device in database
     const { data: device, error: dbError } = await supabaseClient
       .from('devices')
-      .upsert({
+      .insert({
         user_id: user.id,
         device_name,
         phone_number,
         device_id,
         status: 'NOT CONNECTED',
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'user_id,device_name',
       })
       .select()
       .single();
