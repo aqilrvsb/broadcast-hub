@@ -4,11 +4,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { status: 200, headers: corsHeaders })
   }
 
   try {
@@ -35,55 +36,81 @@ serve(async (req) => {
     }
 
     const api_key = Deno.env.get('WHACENTER_API_KEY')
-    console.log('User ID:', user.id)
-    console.log('Device name:', device_name)
-    console.log('Phone number:', phone_number)
-    
-    // Check if user already has a device
+    const name = user.id
+    const number = phone_number
+
+    console.log('Starting add device process for user:', user.id)
+
+    // Step 1: Check if user already has a device and delete it
     const { data: existingDevices } = await supabaseClient
       .from('devices')
       .select('device_id')
       .eq('user_id', user.id)
 
-    if (existingDevices && existingDevices.length > 0) {
+    if (existingDevices && existingDevices.length > 0 && existingDevices[0].device_id) {
       const old_device_id = existingDevices[0].device_id
-      if (old_device_id) {
-        console.log('Deleting old device from Whacenter:', old_device_id)
-        try {
-          await fetch(`https://api.whacenter.com/api/deleteDevice?api_key=${api_key}&device_id=${old_device_id}`)
-        } catch (e) {
-          console.error('Error deleting old device:', e)
-        }
+      console.log('Deleting old device from Whacenter:', old_device_id)
+      
+      try {
+        const deleteUrl = `https://api.whacenter.com/api/deleteDevice?api_key=${api_key}&device_id=${encodeURIComponent(old_device_id)}`
+        const deleteResponse = await fetch(deleteUrl, {
+          method: 'GET',
+          headers: {
+            'accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        })
+        const deleteData = await deleteResponse.json()
+        console.log('Delete old device response:', deleteData)
+      } catch (e) {
+        console.error('Error deleting old device:', e)
       }
+
+      // Delete old device from database
+      await supabaseClient
+        .from('devices')
+        .delete()
+        .eq('user_id', user.id)
     }
 
-    // Add device to Whacenter
-    const addDeviceUrl = `https://api.whacenter.com/api/addDevice?api_key=${api_key}&name=${encodeURIComponent(user.id)}&number=${encodeURIComponent(phone_number)}`
-    console.log('Adding device to Whacenter...')
-    const addResponse = await fetch(addDeviceUrl)
-    const addData = await addResponse.json()
+    // Step 2: Add new device to Whacenter
+    console.log('Adding new device to Whacenter...')
+    const addDeviceUrl = `https://api.whacenter.com/api/addDevice?api_key=${api_key}&name=${encodeURIComponent(name)}&number=${encodeURIComponent(number)}`
+    
+    const addResponse = await fetch(addDeviceUrl, {
+      method: 'GET',
+      headers: {
+        'accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    })
 
-    console.log('Whacenter add device response:', addData)
+    const addData = await addResponse.json()
+    console.log('Add device response:', addData)
 
     if (!addData.success) {
-      throw new Error('Failed to add device to Whacenter: ' + JSON.stringify(addData))
+      throw new Error('Failed to add device to Whacenter')
     }
 
     const device_id = addData.data.device.device_id
-    console.log('Device ID from Whacenter:', device_id)
+    console.log('New device_id:', device_id)
 
-    // Set webhook
-    const setWebhookUrl = `https://api.whacenter.com/api/setWebhook?device_id=${device_id}&webhook=`
+    // Step 3: Set webhook (empty string as per PHP code)
+    const webhook_xs = ""
+    const setWebhookUrl = `https://api.whacenter.com/api/setWebhook?device_id=${encodeURIComponent(device_id)}&webhook=${webhook_xs}`
+    
     console.log('Setting webhook...')
-    await fetch(setWebhookUrl)
+    const webhookResponse = await fetch(setWebhookUrl, {
+      method: 'GET',
+      headers: {
+        'accept': 'application/json'
+      }
+    })
 
-    // Delete old device records
-    await supabaseClient
-      .from('devices')
-      .delete()
-      .eq('user_id', user.id)
+    const webhookData = await webhookResponse.json()
+    console.log('Webhook response:', webhookData)
 
-    // Insert new device
+    // Step 4: Insert new device into database
     const { data: device, error: dbError } = await supabaseClient
       .from('devices')
       .insert({
@@ -101,7 +128,7 @@ serve(async (req) => {
       throw dbError
     }
 
-    console.log('Device saved to database:', device)
+    console.log('Device saved successfully:', device)
 
     return new Response(
       JSON.stringify({ success: true, device }),
