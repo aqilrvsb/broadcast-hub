@@ -63,13 +63,14 @@ create index profiles_username_idx on public.profiles(username);
 -- Create devices table to store WhatsApp devices
 create table public.devices (
   id uuid default gen_random_uuid() primary key,
-  user_id uuid not null references auth.users on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
   device_name text not null,
   phone_number text not null,
   device_id text unique,
   status text default 'NOT CONNECTED',
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique(user_id, device_name)
 );
 
 -- Enable Row Level Security
