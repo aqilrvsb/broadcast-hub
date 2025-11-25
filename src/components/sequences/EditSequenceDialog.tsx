@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,13 +9,14 @@ import { toast } from "sonner";
 import { FlowMessageDialog, FlowData } from "./FlowMessageDialog";
 import { Check, Plus } from "lucide-react";
 
-interface CreateSequenceDialogProps {
+interface EditSequenceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  sequenceId: string;
 }
 
-export const CreateSequenceDialog = ({ open, onOpenChange, onSuccess }: CreateSequenceDialogProps) => {
+export const EditSequenceDialog = ({ open, onOpenChange, onSuccess, sequenceId }: EditSequenceDialogProps) => {
   const [name, setName] = useState("");
   const [niche, setNiche] = useState("");
   const [trigger, setTrigger] = useState("");
@@ -27,6 +28,61 @@ export const CreateSequenceDialog = ({ open, onOpenChange, onSuccess }: CreateSe
   const [flowDialogOpen, setFlowDialogOpen] = useState(false);
   const [currentFlow, setCurrentFlow] = useState<number>(1);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchSequenceData = async () => {
+      if (!open || !sequenceId) return;
+
+      try {
+        // Fetch sequence data
+        const { data: sequence, error: seqError } = await supabase
+          .from('sequences')
+          .select('*')
+          .eq('id', sequenceId)
+          .single();
+
+        if (seqError) throw seqError;
+
+        setName(sequence.name);
+        setNiche(sequence.niche);
+        setTrigger(sequence.trigger);
+        setDescription(sequence.description);
+        setMinDelay(sequence.min_delay);
+        setMaxDelay(sequence.max_delay);
+        setScheduleTime(sequence.schedule_time);
+
+        // Fetch flows
+        const { data: flowsData, error: flowsError } = await supabase
+          .from('sequence_flows')
+          .select('*')
+          .eq('sequence_id', sequenceId)
+          .order('flow_number');
+
+        if (flowsError) throw flowsError;
+
+        if (flowsData) {
+          const flowsMap: { [key: number]: FlowData } = {};
+          flowsData.forEach((flow) => {
+            flowsMap[flow.flow_number] = {
+              stepTrigger: flow.step_trigger,
+              nextTrigger: flow.next_trigger,
+              delayHours: flow.delay_hours,
+              message: flow.message,
+              imageUrl: flow.image_url,
+              isEnd: flow.is_end,
+              continueToSequence: flow.continue_to_sequence
+            };
+          });
+          setFlows(flowsMap);
+        }
+      } catch (error: any) {
+        toast.error("Failed to load sequence data");
+        console.error(error);
+      }
+    };
+
+    fetchSequenceData();
+  }, [open, sequenceId]);
 
   const handleFlowClick = (flowNumber: number) => {
     setCurrentFlow(flowNumber);
@@ -48,18 +104,10 @@ export const CreateSequenceDialog = ({ open, onOpenChange, onSuccess }: CreateSe
     setLoading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        toast.error("Please login to create sequences");
-        return;
-      }
-
-      // Create sequence
-      const { data: sequence, error: sequenceError } = await supabase
+      // Update sequence
+      const { error: sequenceError } = await supabase
         .from('sequences')
-        .insert({
-          user_id: user.id,
+        .update({
           name: name.trim(),
           niche: niche.trim(),
           trigger: trigger.trim(),
@@ -67,17 +115,23 @@ export const CreateSequenceDialog = ({ open, onOpenChange, onSuccess }: CreateSe
           min_delay: minDelay,
           max_delay: maxDelay,
           schedule_time: scheduleTime,
-          is_active: true
         })
-        .select()
-        .single();
+        .eq('id', sequenceId);
 
       if (sequenceError) throw sequenceError;
 
-      // Create flows if any
+      // Delete existing flows
+      const { error: deleteError } = await supabase
+        .from('sequence_flows')
+        .delete()
+        .eq('sequence_id', sequenceId);
+
+      if (deleteError) throw deleteError;
+
+      // Insert updated flows
       if (Object.keys(flows).length > 0) {
         const flowsData = Object.entries(flows).map(([flowNumber, flowData]) => ({
-          sequence_id: sequence.id,
+          sequence_id: sequenceId,
           flow_number: parseInt(flowNumber),
           step_trigger: flowData.stepTrigger,
           next_trigger: flowData.nextTrigger,
@@ -95,21 +149,11 @@ export const CreateSequenceDialog = ({ open, onOpenChange, onSuccess }: CreateSe
         if (flowsError) throw flowsError;
       }
 
-      toast.success("Sequence created successfully");
+      toast.success("Sequence updated successfully");
       onSuccess();
       onOpenChange(false);
-      
-      // Reset form
-      setName("");
-      setNiche("");
-      setTrigger("");
-      setDescription("");
-      setMinDelay(5);
-      setMaxDelay(15);
-      setScheduleTime("09:00");
-      setFlows({});
     } catch (error: any) {
-      toast.error(error.message || "Failed to create sequence");
+      toast.error(error.message || "Failed to update sequence");
     } finally {
       setLoading(false);
     }
@@ -120,7 +164,7 @@ export const CreateSequenceDialog = ({ open, onOpenChange, onSuccess }: CreateSe
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
-            <DialogTitle>Create New Sequence</DialogTitle>
+            <DialogTitle>Edit Sequence</DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4 mt-4">
@@ -133,7 +177,6 @@ export const CreateSequenceDialog = ({ open, onOpenChange, onSuccess }: CreateSe
                   id="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="TEST"
                   required
                 />
               </div>
@@ -146,7 +189,6 @@ export const CreateSequenceDialog = ({ open, onOpenChange, onSuccess }: CreateSe
                   id="niche"
                   value={niche}
                   onChange={(e) => setNiche(e.target.value)}
-                  placeholder="TESTDATA"
                   required
                 />
               </div>
@@ -158,7 +200,6 @@ export const CreateSequenceDialog = ({ open, onOpenChange, onSuccess }: CreateSe
                 id="trigger"
                 value={trigger}
                 onChange={(e) => setTrigger(e.target.value)}
-                placeholder="it1"
               />
               <p className="text-xs text-muted-foreground">
                 This trigger will be used to identify and enroll leads into this sequence
@@ -173,7 +214,6 @@ export const CreateSequenceDialog = ({ open, onOpenChange, onSuccess }: CreateSe
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="HELLO DATA test"
                 className="min-h-[100px]"
                 required
               />
@@ -247,7 +287,7 @@ export const CreateSequenceDialog = ({ open, onOpenChange, onSuccess }: CreateSe
                 type="submit"
                 disabled={loading}
               >
-                {loading ? "Creating..." : "Create Sequence"}
+                {loading ? "Updating..." : "Update Sequence"}
               </Button>
             </div>
           </form>
@@ -261,6 +301,7 @@ export const CreateSequenceDialog = ({ open, onOpenChange, onSuccess }: CreateSe
         onSave={handleFlowSave}
         initialData={flows[currentFlow]}
         sequenceTrigger={trigger}
+        currentSequenceId={sequenceId}
       />
     </>
   );
