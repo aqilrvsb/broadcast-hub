@@ -85,7 +85,7 @@ export const CreateSequenceDialog = ({ open, onOpenChange, onSuccess }: CreateSe
           message: flowData.message,
           image_url: flowData.imageUrl,
           is_end: flowData.isEnd,
-          continue_to_sequence: flowData.continueToSequence
+          continue_to_sequence: flowData.continueToSequence || null
         }));
 
         const { error: flowsError } = await supabase
