@@ -2,3 +2,12 @@ project_id = "hxplutdgulpnzkhdydqh"
 
 [functions.broadcast-message]
 verify_jwt = true
+
+[functions.add-device]
+verify_jwt = true
+
+[functions.check-device-status]
+verify_jwt = true
+
+[functions.delete-device]
+verify_jwt = true
