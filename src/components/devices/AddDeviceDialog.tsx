@@ -40,6 +40,7 @@ export const AddDeviceDialog = ({ open, onOpenChange, onSuccess }: AddDeviceDial
     setIsLoading(true);
 
     try {
+      console.log('Invoking add-device function...');
       const { data, error } = await supabase.functions.invoke('add-device', {
         body: {
           device_name: deviceName.trim(),
@@ -47,7 +48,11 @@ export const AddDeviceDialog = ({ open, onOpenChange, onSuccess }: AddDeviceDial
         },
       });
 
-      if (error) throw error;
+      console.log('add-device response:', { data, error });
+      if (error) {
+        console.error('add-device error:', error);
+        throw error;
+      }
 
       if (data.success) {
         toast({

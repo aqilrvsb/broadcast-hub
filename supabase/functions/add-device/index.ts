@@ -8,10 +8,14 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  console.log('add-device function called, method:', req.method)
+  
   if (req.method === 'OPTIONS') {
+    console.log('Returning OPTIONS response')
     return new Response(null, { status: 200, headers: corsHeaders })
   }
 
+  console.log('Processing POST request')
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
