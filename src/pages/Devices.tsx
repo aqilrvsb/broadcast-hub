@@ -178,7 +178,18 @@ const Devices = () => {
           },
         }
       );
-      const qrData = await qrResponse.json();
+
+      if (!qrResponse.ok) {
+        throw new Error(`Failed to fetch QR code: ${qrResponse.status} ${qrResponse.statusText}`);
+      }
+
+      let qrData;
+      try {
+        qrData = await qrResponse.json();
+      } catch (parseError) {
+        console.error('Failed to parse QR response:', parseError);
+        throw new Error("Invalid response from QR endpoint");
+      }
 
       if (qrData.success && qrData.data?.image) {
         const isValid = validateQRCode(qrData.data.image);
@@ -301,7 +312,18 @@ const Devices = () => {
           },
         }
       );
-      const qrData = await qrResponse.json();
+      
+      if (!qrResponse.ok) {
+        throw new Error(`Failed to fetch QR code: ${qrResponse.status} ${qrResponse.statusText}`);
+      }
+
+      let qrData;
+      try {
+        qrData = await qrResponse.json();
+      } catch (parseError) {
+        console.error('Failed to parse QR response:', parseError);
+        throw new Error("Invalid response from QR endpoint");
+      }
 
       if (qrData.success && qrData.data?.image) {
         const isValid = validateQRCode(qrData.data.image);
@@ -323,7 +345,7 @@ const Devices = () => {
 
         fetchDevices();
       } else {
-        throw new Error("Failed to get new QR code");
+        throw new Error(qrData.message || "Failed to get new QR code");
       }
     } catch (error: any) {
       toast({
