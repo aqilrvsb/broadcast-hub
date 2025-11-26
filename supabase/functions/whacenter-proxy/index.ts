@@ -45,6 +45,37 @@ Deno.serve(async (req) => {
       },
     })
 
+    const contentType = response.headers.get('content-type')
+    
+    // Check if response is an image (for QR code endpoint)
+    if (contentType?.includes('image/')) {
+      const imageBuffer = await response.arrayBuffer()
+      const base64Image = btoa(
+        new Uint8Array(imageBuffer).reduce(
+          (data, byte) => data + String.fromCharCode(byte),
+          ''
+        )
+      )
+      
+      // Return in expected JSON format
+      const jsonResponse = {
+        success: true,
+        data: {
+          image: base64Image
+        }
+      }
+      
+      console.log('Converted image to base64 JSON response')
+      
+      return new Response(
+        JSON.stringify(jsonResponse),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
     const data = await response.json()
     
     console.log(`WhatsApp Center response:`, data)
