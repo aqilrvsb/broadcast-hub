@@ -50,12 +50,14 @@ Deno.serve(async (req) => {
     // Check if response is an image (for QR code endpoint)
     if (contentType?.includes('image/')) {
       const imageBuffer = await response.arrayBuffer()
-      const base64Image = btoa(
-        new Uint8Array(imageBuffer).reduce(
-          (data, byte) => data + String.fromCharCode(byte),
-          ''
-        )
-      )
+      
+      // Convert ArrayBuffer to base64 using Deno's standard encoding
+      const uint8Array = new Uint8Array(imageBuffer)
+      let binaryString = ''
+      for (let i = 0; i < uint8Array.length; i++) {
+        binaryString += String.fromCharCode(uint8Array[i])
+      }
+      const base64Image = btoa(binaryString)
       
       // Return in expected JSON format
       const jsonResponse = {
@@ -65,7 +67,7 @@ Deno.serve(async (req) => {
         }
       }
       
-      console.log('Converted image to base64 JSON response')
+      console.log('Converted image to base64 JSON response, length:', base64Image.length)
       
       return new Response(
         JSON.stringify(jsonResponse),

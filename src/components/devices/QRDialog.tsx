@@ -30,7 +30,7 @@ export const QRDialog = ({
   const [countdown, setCountdown] = useState(10);
 
   useEffect(() => {
-    if (!open || !isValidQR) {
+    if (!open || !isValidQR || isRefreshing) {
       setCountdown(10);
       return;
     }
@@ -40,14 +40,21 @@ export const QRDialog = ({
       setCountdown((prev) => {
         if (prev <= 1) {
           onRefresh();
-          return 10;
+          return 10; // Reset countdown after triggering refresh
         }
         return prev - 1;
       });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [open, isValidQR, onRefresh]);
+  }, [open, isValidQR, isRefreshing, onRefresh]);
+
+  // Reset countdown when isRefreshing becomes false (refresh completed)
+  useEffect(() => {
+    if (!isRefreshing && isValidQR && open) {
+      setCountdown(10);
+    }
+  }, [isRefreshing, isValidQR, open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
