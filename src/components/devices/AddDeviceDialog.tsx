@@ -76,9 +76,24 @@ export const AddDeviceDialog = ({ open, onOpenChange, onSuccess }: AddDeviceDial
       setPhoneError("Phone number must start with 6");
       setPhoneAvailable(false);
       return;
-    } else {
-      setPhoneError("");
     }
+
+    // Validate phone number length (11 or 12 digits)
+    const phoneLength = phoneNumber.trim().length;
+    if (phoneLength !== 11 && phoneLength !== 12) {
+      setPhoneError("Phone number must be 11 or 12 digits");
+      setPhoneAvailable(false);
+      return;
+    }
+
+    // Validate phone number contains only digits
+    if (!/^\d+$/.test(phoneNumber.trim())) {
+      setPhoneError("Phone number must contain only digits");
+      setPhoneAvailable(false);
+      return;
+    }
+
+    setPhoneError("");
 
     const timeoutId = setTimeout(async () => {
       setIsCheckingPhone(true);
@@ -343,7 +358,7 @@ export const AddDeviceDialog = ({ open, onOpenChange, onSuccess }: AddDeviceDial
                     ? "✓ Phone number is available" 
                     : phoneAvailable === false 
                     ? "✗ Phone number is already registered" 
-                    : "Must start with 6"}
+                    : "Must start with 6 and be 11 or 12 digits"}
                 </p>
               )}
             </div>
