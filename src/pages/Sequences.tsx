@@ -63,11 +63,17 @@ export default function Sequences() {
   // Filter states
   const getFirstDayOfMonth = () => {
     const date = new Date()
-    return new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0]
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    return `${year}-${month}-01`
   }
   const getLastDayOfMonth = () => {
     const date = new Date()
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split('T')[0]
+    const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0)
+    const year = lastDay.getFullYear()
+    const month = String(lastDay.getMonth() + 1).padStart(2, '0')
+    const day = String(lastDay.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
   }
   const [filterStartDate, setFilterStartDate] = useState(getFirstDayOfMonth())
   const [filterEndDate, setFilterEndDate] = useState(getLastDayOfMonth())
@@ -776,7 +782,7 @@ export default function Sequences() {
                     <span
                       className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase ${
                         sequence.status === 'active'
-                          ? 'bg-red-100 text-red-700'
+                          ? 'bg-green-100 text-green-700'
                           : 'bg-yellow-100 text-yellow-700'
                       }`}
                     >
@@ -832,8 +838,8 @@ export default function Sequences() {
                         disabled={sequence.status === 'active'}
                         className="sr-only peer"
                       />
-                      <div className={`w-11 h-6 ${sequence.status === 'active' ? 'bg-red-600' : 'bg-gray-200'} peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600`}></div>
-                      <span className={`ml-2 text-sm font-medium ${sequence.status === 'active' ? 'text-red-700' : 'text-gray-700'}`}>
+                      <div className={`w-11 h-6 ${sequence.status === 'active' ? 'bg-green-600' : 'bg-gray-200'} peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600`}></div>
+                      <span className={`ml-2 text-sm font-medium ${sequence.status === 'active' ? 'text-green-700' : 'text-gray-700'}`}>
                         {sequence.status === 'active' ? 'Lock' : 'Pending'}
                       </span>
                     </label>
