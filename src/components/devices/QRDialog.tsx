@@ -31,23 +31,24 @@ export const QRDialog = ({
 
   useEffect(() => {
     if (!open || !isValidQR || isRefreshing) {
+      setCountdown(10);
       return;
     }
 
-    // Auto-refresh countdown for valid QR codes
+    // Auto-close countdown for valid QR codes
     const interval = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          // Trigger refresh when countdown hits 0
-          onRefresh();
-          return 0; // Stay at 0 until refresh completes
+          // Close modal when countdown hits 0
+          onOpenChange(false);
+          return 10;
         }
         return prev - 1;
       });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [open, isValidQR, isRefreshing, onRefresh]);
+  }, [open, isValidQR, isRefreshing, onOpenChange]);
 
   // Reset countdown when isRefreshing becomes false (refresh completed)
   useEffect(() => {
@@ -92,7 +93,7 @@ export const QRDialog = ({
               {isValidQR ? (
                 <div className="text-center">
                   <p className="text-sm text-muted-foreground mb-2">
-                    Auto-refreshing in {countdown} seconds...
+                    Modal will close in {countdown} seconds...
                   </p>
                   <Button 
                     onClick={onRefresh} 
