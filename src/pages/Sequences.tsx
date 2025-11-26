@@ -13,6 +13,7 @@ type Sequence = {
   niche: string
   trigger: string
   description: string
+  schedule_date: string
   schedule_time: string
   min_delay: number
   max_delay: number
@@ -67,7 +68,8 @@ export default function Sequences() {
     niche: '', // Keep for backward compatibility
     trigger: '', // Keep for backward compatibility
     description: '', // Keep for backward compatibility
-    schedule_time: '09:00', // Keep in state for backward compatibility but won't show in UI
+    schedule_date: '', // Date for scheduling
+    schedule_time: '09:00', // Time for scheduling
     min_delay: 5,
     max_delay: 15,
     status: 'inactive' as 'active' | 'inactive',
@@ -299,7 +301,8 @@ export default function Sequences() {
       niche: sequence.niche || '',
       trigger: sequence.trigger || '',
       description: sequence.description || '',
-      schedule_time: sequence.schedule_time,
+      schedule_date: sequence.schedule_date || '',
+      schedule_time: sequence.schedule_time || '09:00',
       min_delay: sequence.min_delay,
       max_delay: sequence.max_delay,
       status: sequence.status,
@@ -585,6 +588,7 @@ export default function Sequences() {
       niche: '',
       trigger: '',
       description: '',
+      schedule_date: '',
       schedule_time: '09:00',
       min_delay: 5,
       max_delay: 15,
@@ -793,6 +797,34 @@ export default function Sequences() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Schedule Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.schedule_date}
+                      onChange={(e) => setFormData({ ...formData, schedule_date: e.target.value })}
+                      className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Schedule Time <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={formData.schedule_time}
+                      onChange={(e) => setFormData({ ...formData, schedule_time: e.target.value })}
+                      className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Min Delay (seconds)</label>
                     <input
                       type="number"
@@ -949,6 +981,34 @@ export default function Sequences() {
                     {formData.device_id && contactCategories.length === 0 && (
                       <p className="text-xs text-amber-600 mt-1">No categories found for this device. Create categories first.</p>
                     )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Schedule Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.schedule_date}
+                      onChange={(e) => setFormData({ ...formData, schedule_date: e.target.value })}
+                      className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Schedule Time <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={formData.schedule_time}
+                      onChange={(e) => setFormData({ ...formData, schedule_time: e.target.value })}
+                      className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      required
+                    />
                   </div>
                 </div>
 
