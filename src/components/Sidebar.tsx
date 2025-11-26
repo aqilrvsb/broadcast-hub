@@ -19,12 +19,12 @@ export default function Sidebar() {
   const userNavItems = [
     { path: '/dashboard', icon: '📊', label: 'Dashboard' },
     { path: '/device-settings', icon: '⚙️', label: 'Device Settings' },
-    { path: '/prompts', icon: '📝', label: 'Prompts' },
-    { path: '/chatbot-ai', icon: '🤖', label: 'Chatbot AI' },
+    // { path: '/prompts', icon: '📝', label: 'Prompts' }, // Hidden
+    // { path: '/chatbot-ai', icon: '🤖', label: 'Chatbot AI' }, // Hidden
     { path: '/sequences', icon: '📨', label: 'Sequences' },
     { path: '/bank-image', icon: '🏦', label: 'Bank Image' },
-    { path: '/profile', icon: '👤', label: 'Profile' },
-    { path: '/billings', icon: '💳', label: 'Billings' },
+    // { path: '/profile', icon: '👤', label: 'Profile' }, // Hidden
+    // { path: '/billings', icon: '💳', label: 'Billings' }, // Hidden
   ]
 
   // Determine which nav items to show based on user role
@@ -36,7 +36,7 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center gap-3">
-          <span className="text-3xl">🤖</span>
+          <span className="text-3xl">☀️</span>
           <h1 className="text-xl font-black">
             <span className="text-gray-900">RV</span>
             <span className="text-primary-600">CAST</span>

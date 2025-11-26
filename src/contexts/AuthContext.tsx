@@ -114,6 +114,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: 'ID Staff already exists' }
       }
 
+      // Calculate subscription end date (1 year from now)
+      const subscriptionEnd = new Date()
+      subscriptionEnd.setFullYear(subscriptionEnd.getFullYear() + 1)
+
       // Create new user in public.user table
       const { error } = await supabase
         .from('user')
@@ -123,8 +127,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           password: password,
           is_active: true,
           status: 'Trial',
-          subscription_status: 'inactive',
-          max_devices: 1,
+          subscription_status: 'active',
+          subscription_start: new Date().toISOString(),
+          subscription_end: subscriptionEnd.toISOString(),
+          max_devices: 3,
           role: 'user',
         })
 
