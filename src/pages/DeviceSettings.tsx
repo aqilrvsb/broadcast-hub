@@ -696,13 +696,6 @@ export default function DeviceSettings() {
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => setShowAPIKeyGuide(true)}
-              className="px-6 py-3 rounded-lg font-medium transition-colors shadow-sm bg-blue-600 hover:bg-blue-700 text-white"
-              title="Learn how to get OpenRouter API Key"
-            >
-              API Key
-            </button>
-            <button
               onClick={() => {
                 const maxDevices = user?.max_devices || 0
                 const currentDeviceCount = devices.length
@@ -772,10 +765,6 @@ export default function DeviceSettings() {
                     <p className="text-gray-600 text-sm">Phone Number</p>
                     <p className="text-gray-900 font-medium">{device.phone_number || '-'}</p>
                   </div>
-                  <div>
-                    <p className="text-gray-600 text-sm">AI Model</p>
-                    <p className="text-gray-900 font-medium">{device.api_key_option}</p>
-                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -841,44 +830,6 @@ export default function DeviceSettings() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Instance</label>
-                    <input
-                      type="text"
-                      value={formData.instance}
-                      onChange={(e) => setFormData({ ...formData, instance: e.target.value })}
-                      className="w-full bg-gray-100 border border-gray-300 text-gray-600 rounded-lg px-4 py-2 cursor-not-allowed"
-                      readOnly
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Webhook ID</label>
-                    <input
-                      type="text"
-                      value={formData.webhook_id}
-                      onChange={(e) => setFormData({ ...formData, webhook_id: e.target.value })}
-                      className="w-full bg-gray-100 border border-gray-300 text-gray-600 rounded-lg px-4 py-2 cursor-not-allowed"
-                      readOnly
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">AI Model *</label>
-                    <select
-                      value={formData.api_key_option}
-                      onChange={(e) => setFormData({ ...formData, api_key_option: e.target.value })}
-                      className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    >
-                      <option value="openai/gpt-5-chat">GPT-5 Chat</option>
-                      <option value="openai/gpt-5-mini">GPT-5 Mini</option>
-                      <option value="openai/chatgpt-4o-latest">GPT-4o Latest</option>
-                      <option value="openai/gpt-4.1">GPT-4.1</option>
-                      <option value="google/gemini-2.5-pro">Gemini 2.5 Pro</option>
-                      <option value="google/gemini-pro-1.5">Gemini Pro 1.5</option>
-                    </select>
-                  </div>
-
-                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
                     <input
                       type="text"
@@ -887,16 +838,6 @@ export default function DeviceSettings() {
                       className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">API Key (OpenRouter)</label>
-                  <textarea
-                    value={formData.api_key}
-                    onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
-                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    rows={3}
-                  />
                 </div>
 
                 <div className="flex gap-4 mt-6">
