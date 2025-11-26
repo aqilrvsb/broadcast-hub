@@ -13,7 +13,6 @@ export default function Leads() {
   const [category, setCategory] = useState<ContactCategory | null>(null)
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [productFilter, setProductFilter] = useState('')
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingLead, setEditingLead] = useState<Lead | null>(null)
   const [activeTab, setActiveTab] = useState<'list' | 'add' | 'import'>('list')
@@ -291,8 +290,7 @@ export default function Leads() {
     const matchesSearch = !searchQuery ||
       lead.prospect_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lead.prospect_num.includes(searchQuery)
-    const matchesProduct = !productFilter || lead.product === productFilter
-    return matchesSearch && matchesProduct
+    return matchesSearch
   })
 
   if (loading) {
@@ -378,13 +376,6 @@ export default function Leads() {
                     placeholder="Search contacts..."
                     className="bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 w-64"
                   />
-                  <input
-                    type="text"
-                    value={productFilter}
-                    onChange={(e) => setProductFilter(e.target.value)}
-                    placeholder="Filter by product..."
-                    className="bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 w-48"
-                  />
                   <button
                     onClick={selectAllLeads}
                     className="px-4 py-2 bg-primary-50 text-primary-600 rounded-lg font-medium hover:bg-primary-100 transition-colors"
@@ -406,8 +397,7 @@ export default function Leads() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase w-12"></th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Name</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Phone Number</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Product</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Info</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Category</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Created</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Actions</th>
                   </tr>
@@ -415,7 +405,7 @@ export default function Leads() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredLeads.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
+                      <td colSpan={6} className="px-4 py-12 text-center text-gray-500">
                         No contacts found. Add your first contact!
                       </td>
                     </tr>
@@ -432,8 +422,11 @@ export default function Leads() {
                         </td>
                         <td className="px-4 py-3 text-gray-900 font-medium">{lead.prospect_name}</td>
                         <td className="px-4 py-3 text-gray-700">{lead.prospect_num}</td>
-                        <td className="px-4 py-3 text-gray-700">{lead.product || '-'}</td>
-                        <td className="px-4 py-3 text-gray-700">{lead.info || '-'}</td>
+                        <td className="px-4 py-3 text-gray-700">
+                          <span className="px-2 py-1 bg-primary-100 text-primary-700 rounded-full text-xs font-medium">
+                            {category?.name || '-'}
+                          </span>
+                        </td>
                         <td className="px-4 py-3 text-gray-700">
                           {new Date(lead.created_at).toLocaleDateString()}
                         </td>
@@ -492,26 +485,6 @@ export default function Leads() {
                     required
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Product</label>
-                  <input
-                    type="text"
-                    value={formData.product}
-                    onChange={(e) => setFormData({ ...formData, product: e.target.value })}
-                    placeholder="Product name (optional)"
-                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Info</label>
-                  <input
-                    type="text"
-                    value={formData.info}
-                    onChange={(e) => setFormData({ ...formData, info: e.target.value })}
-                    placeholder="Additional info (optional)"
-                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
               </div>
               <button
                 type="submit"
@@ -533,7 +506,7 @@ export default function Leads() {
               </p>
               <div className="bg-gray-50 rounded-lg p-4">
                 <code className="text-sm text-gray-700">
-                  Name, Phone Number, Product (optional), Info (optional)
+                  Name, Phone Number
                 </code>
               </div>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
@@ -582,24 +555,6 @@ export default function Leads() {
                     onChange={(e) => setFormData({ ...formData, prospect_num: e.target.value })}
                     className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
                     required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Product</label>
-                  <input
-                    type="text"
-                    value={formData.product}
-                    onChange={(e) => setFormData({ ...formData, product: e.target.value })}
-                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Info</label>
-                  <input
-                    type="text"
-                    value={formData.info}
-                    onChange={(e) => setFormData({ ...formData, info: e.target.value })}
-                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
 
