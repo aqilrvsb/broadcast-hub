@@ -476,6 +476,48 @@ export default function Sequences() {
           return
         }
 
+        // Validate schedule date is at least tomorrow
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const tomorrow = new Date(today)
+        tomorrow.setDate(tomorrow.getDate() + 1)
+
+        const scheduleDate = new Date(sequence.schedule_date)
+        scheduleDate.setHours(0, 0, 0, 0)
+
+        if (scheduleDate < tomorrow) {
+          const result = await Swal.fire({
+            icon: 'warning',
+            title: 'Schedule Date Too Soon',
+            html: `
+              <p>The schedule date must be at least <strong>tomorrow</strong> to lock the broadcast.</p>
+              <p class="mt-3"><strong>Current Schedule:</strong></p>
+              <p class="text-red-600 font-semibold">${new Date(sequence.schedule_date).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} at ${sequence.schedule_time}</p>
+              <p class="mt-3 text-gray-600">Please update the schedule date to tomorrow or later, then try again.</p>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Edit Schedule',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#3b82f6',
+          })
+
+          if (result.isConfirmed) {
+            // Open edit modal for this sequence
+            setEditingSequence(sequence)
+            setEditFormData({
+              name: sequence.name,
+              device_id: sequence.device_id || '',
+              category_id: sequence.category_id || '',
+              schedule_date: sequence.schedule_date || '',
+              schedule_time: sequence.schedule_time || '',
+              min_delay: sequence.min_delay || 5,
+              max_delay: sequence.max_delay || 15,
+            })
+            setShowEditModal(true)
+          }
+          return
+        }
+
         // Confirm action
         const result = await Swal.fire({
           icon: 'question',
@@ -505,7 +547,7 @@ export default function Sequences() {
         })
 
         // Call Deno Deploy endpoint to schedule messages
-        const DENO_API_URL = import.meta.env.VITE_DENO_API_URL || 'https://boradcast-hub.rolevision19.deno.dev'
+        const DENO_API_URL = import.meta.env.VITE_DENO_API_URL || 'https://broadcast-hub.deno.dev'
 
         const response = await fetch(`${DENO_API_URL}/api/broadcast/lock`, {
           method: 'POST',
