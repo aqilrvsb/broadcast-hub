@@ -6,16 +6,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MessageSquare, QrCode, Users, MoreVertical, Trash2, Smartphone } from "lucide-react";
+import { MessageSquare, QrCode, Users, MoreVertical, Trash2, Smartphone, Loader2 } from "lucide-react";
 import { Device } from "@/pages/Devices";
 
 interface DeviceCardProps {
   device: Device;
   onShowQR: (device: Device) => void;
   onDelete: (device: Device) => void;
+  isLoadingQR?: boolean;
 }
 
-export const DeviceCard = ({ device, onShowQR, onDelete }: DeviceCardProps) => {
+export const DeviceCard = ({ device, onShowQR, onDelete, isLoadingQR = false }: DeviceCardProps) => {
   const isConnected = device.status === "CONNECTED";
 
   return (
@@ -65,9 +66,19 @@ export const DeviceCard = ({ device, onShowQR, onDelete }: DeviceCardProps) => {
                 onClick={() => onShowQR(device)}
                 className="w-full bg-primary hover:bg-primary/90"
                 size="sm"
+                disabled={isLoadingQR}
               >
-                <QrCode className="w-4 h-4 mr-2" />
-                QR
+                {isLoadingQR ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <QrCode className="w-4 h-4 mr-2" />
+                    QR
+                  </>
+                )}
               </Button>
             )}
             {isConnected && (
