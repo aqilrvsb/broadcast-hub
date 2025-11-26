@@ -13,7 +13,7 @@ Your code has been successfully committed and pushed to GitHub:
 If your Deno Deploy project is connected to GitHub, it will auto-deploy automatically!
 
 **Check GitHub Integration:**
-1. Go to: https://dash.deno.com/projects/pening-bot/settings
+1. Go to: https://dash.deno.com/projects/rvcast/settings
 2. Look for "GitHub Integration" section
 3. If connected, it should show:
    - Repository: `aqilrvsb/dev-muse-automaton`
@@ -29,7 +29,7 @@ If your Deno Deploy project is connected to GitHub, it will auto-deploy automati
 ## Option 2: Deploy via Deno Dashboard (MANUAL)
 
 **Steps:**
-1. Go to: https://dash.deno.com/projects/pening-bot
+1. Go to: https://dash.deno.com/projects/rvcast
 2. Click "Deploy" button (top right)
 3. Select "GitHub Repository"
 4. Choose: `aqilrvsb/dev-muse-automaton`
@@ -53,7 +53,7 @@ deno install -Arf https://deno.land/x/deploy/deployctl.ts
 **Deploy:**
 ```bash
 cd "C:\Users\User\Pictures\dev-muse-automaton-main\deno-backend"
-deployctl deploy --project=pening-bot --prod main.ts
+deployctl deploy --project=rvcast --prod main.ts
 ```
 
 ---
@@ -62,7 +62,7 @@ deployctl deploy --project=pening-bot --prod main.ts
 
 If GitHub integration is not set up:
 
-1. Go to: https://dash.deno.com/projects/pening-bot/settings
+1. Go to: https://dash.deno.com/projects/rvcast/settings
 2. Scroll to "GitHub Integration"
 3. Click "Link GitHub Repository"
 4. Authorize Deno Deploy to access your GitHub
@@ -87,7 +87,7 @@ After deployment (via any method), verify it works:
 
 ### 1. Check Health Endpoint
 ```bash
-curl https://pening-bot.deno.dev/health
+curl https://rvcast.deno.dev/health
 ```
 
 Expected response:
@@ -96,7 +96,7 @@ Expected response:
 ```
 
 ### 2. Check Logs
-https://dash.deno.com/projects/pening-bot/logs
+https://dash.deno.com/projects/rvcast/logs
 
 Look for:
 ```
@@ -126,7 +126,7 @@ Expected logs:
 ## Environment Variables
 
 Make sure these are set in Deno Deploy:
-https://dash.deno.com/projects/pening-bot/settings
+https://dash.deno.com/projects/rvcast/settings
 
 Required:
 - `SUPABASE_URL`

@@ -1,5 +1,5 @@
 /**
- * CHIP Payment Handler for PeningBot
+ * CHIP Payment Handler for RVCAST
  *
  * Allows users to purchase subscription packages via CHIP Payment Gateway
  * Updates user subscription after successful payment
@@ -73,7 +73,7 @@ const handler = async (req)=>{
       });
     }
     const userName = userData.full_name || 'User';
-    const userEmail = userData.email || `${user_id.substring(0, 8)}@peningbot.com`;
+    const userEmail = userData.email || `${user_id.substring(0, 8)}@RVCAST.com`;
     // Get package details
     const { data: packageData, error: packageError } = await supabase.from('packages').select('*').eq('id', package_id).single();
     if (packageError || !packageData) {
@@ -117,7 +117,7 @@ const handler = async (req)=>{
       }
     }
     if (!appOrigin) {
-      appOrigin = Deno.env.get('APP_ORIGIN') || 'https://peningbot.vercel.app';
+      appOrigin = Deno.env.get('APP_ORIGIN') || 'https://RVCAST.vercel.app';
     }
     console.log(`🌐 Using app origin: ${appOrigin}`);
     // Create CHIP purchase

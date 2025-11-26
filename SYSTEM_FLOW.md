@@ -33,7 +33,7 @@ User receives response
 **File:** `deno-backend/handlers/webhook.ts`
 
 **Process:**
-- WAHA (WhatsApp provider) sends a POST request to: `https://pening-bot.deno.dev/{device_id}/{webhook_id}`
+- WAHA (WhatsApp provider) sends a POST request to: `https://rvcast.deno.dev/{device_id}/{webhook_id}`
 - Handler verifies the device exists in `device_setting` table
 - Parses the webhook payload using `webhook-parser.ts`
 - Extracts: phone number, message content, name
@@ -200,7 +200,7 @@ The system now tracks conversation state directly in the `ai_whatsapp` table usi
 
 ### Webhook URL Format
 ```
-https://pening-bot.deno.dev/{device_id}/{webhook_id}
+https://rvcast.deno.dev/{device_id}/{webhook_id}
 ```
 
 ### Device Settings

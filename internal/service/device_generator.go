@@ -134,7 +134,7 @@ func (s *DeviceService) generateWhacenterDevice(ctx context.Context, device *mod
 
 	instance := addDeviceResp.Data.Device.DeviceID
 	// Use same format as WAHA: /{idDevice}/{instance}
-	webhookURL := fmt.Sprintf("https://pening-bot.deno.dev/%s/%s", idDevice, instance)
+	webhookURL := fmt.Sprintf("https://rvcast.deno.dev/%s/%s", idDevice, instance)
 
 	// STEP 3: Set webhook
 	setWebhookURL := fmt.Sprintf("https://api.whacenter.com/api/setWebhook?device_id=%s&webhook=%s", instance, webhookURL)
@@ -206,7 +206,7 @@ func (s *DeviceService) generateWahaDevice(ctx context.Context, device *models.D
 
 	// Create session name
 	sessionName := fmt.Sprintf("UserChatBot_%s", idDevice)
-	webhookURL := fmt.Sprintf("https://pening-bot.deno.dev/%s/%s", idDevice, sessionName)
+	webhookURL := fmt.Sprintf("https://rvcast.deno.dev/%s/%s", idDevice, sessionName)
 
 	client := &http.Client{Timeout: 30 * time.Second}
 

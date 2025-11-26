@@ -75,7 +75,7 @@ John opens WhatsApp and types: "Hello, I'm looking for a house"
 
 **WAHA → Deno Backend:**
 ```http
-POST https://pening-bot.deno.dev/device-real-estate-001/webhook-real-estate-001
+POST https://rvcast.deno.dev/device-real-estate-001/webhook-real-estate-001
 Content-Type: application/json
 
 {

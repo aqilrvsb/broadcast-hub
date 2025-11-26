@@ -103,7 +103,7 @@ const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
   headers: {
     "Content-Type": "application/json",
     "Authorization": `Bearer ${device.api_key}`,
-    "HTTP-Referer": "https://pening-bot.deno.dev",
+    "HTTP-Referer": "https://rvcast.deno.dev",
     "X-Title": "Muse Automaton"
   },
   body: JSON.stringify(payload)
@@ -496,7 +496,7 @@ The final step is the message delivery from the WhatsApp provider back to the us
 If configured, WAHA can send delivery status updates to a status webhook:
 
 ```json
-POST https://pening-bot.deno.dev/status-webhook
+POST https://rvcast.deno.dev/status-webhook
 {
   "event": "message.status",
   "session": "default",

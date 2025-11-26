@@ -13,7 +13,7 @@ import { handleWebhook } from "./handlers/webhook.ts";  // ❌ Won't work in pla
 
 ### Option 1: Use GitHub Integration (STRONGLY RECOMMENDED) ✅
 
-1. Go to https://dash.deno.com/projects/pening-bot/settings
+1. Go to https://dash.deno.com/projects/rvcast/settings
 2. Find "Production" or "Git Integration"
 3. Click "Link GitHub Repository"
 4. Select: `aqilrvsb/dev-muse-automaton`
@@ -83,7 +83,7 @@ dev-muse-automaton/
 
 ## Check Current Deployment Method
 
-Go to: https://dash.deno.com/projects/pening-bot/settings
+Go to: https://dash.deno.com/projects/rvcast/settings
 
 Look for:
 - "Production" section

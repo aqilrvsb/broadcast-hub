@@ -67,7 +67,7 @@ SUPABASE_URL=https://bjnjucwpwdzgsnqmpmff.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 DEBOUNCE_DELAY_MS=4000
-SERVER_URL=https://pening-bot.deno.dev
+SERVER_URL=https://rvcast.deno.dev
 WAHA_API_URL=https://waha-plus-production-705f.up.railway.app
 ```
 
@@ -81,12 +81,12 @@ WAHA_API_URL=https://waha-plus-production-705f.up.railway.app
 ## 📋 Webhook URL Pattern
 
 ```
-https://pening-bot.deno.dev/{device_id}/{webhook_id}
+https://rvcast.deno.dev/{device_id}/{webhook_id}
 ```
 
 ### Example:
 ```
-https://pening-bot.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001
+https://rvcast.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001
 ```
 
 ---
@@ -95,7 +95,7 @@ https://pening-bot.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001
 
 ### Health Check
 ```bash
-curl https://pening-bot.deno.dev/health
+curl https://rvcast.deno.dev/health
 ```
 
 Expected response:
@@ -117,7 +117,7 @@ Expected response:
 
 ### Webhook Verification (GET)
 ```bash
-curl "https://pening-bot.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001?hub.challenge=test123"
+curl "https://rvcast.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001?hub.challenge=test123"
 ```
 
 Expected: Returns `test123`

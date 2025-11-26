@@ -416,7 +416,7 @@ if (webhookMatch) {
 - ✅ `GET /:deviceId/:webhookId` (verification)
 - ✅ `POST /:deviceId/:webhookId` (messages)
 
-**Example:** `https://pening-bot.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001`
+**Example:** `https://rvcast.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001`
 
 **Status:** ✅ **COMPLETE** - Full pattern support
 
@@ -514,9 +514,9 @@ https://chatbot-automation-production.up.railway.app/FakhriAidilTLW-001/UserChat
 
 **New Deno Deploy URL:**
 ```
-https://pening-bot.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001
+https://rvcast.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001
 ```
 
-**Pattern:** `https://pening-bot.deno.dev/{device_id}/{webhook_id}`
+**Pattern:** `https://rvcast.deno.dev/{device_id}/{webhook_id}`
 
 Just update your WhatsApp provider webhook settings and you're live! 🚀

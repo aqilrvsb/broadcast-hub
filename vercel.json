@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "name": "peningbot-react",
+  "name": "RVCAST-react",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",

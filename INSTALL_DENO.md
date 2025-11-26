@@ -34,7 +34,7 @@ This will open a browser for authentication.
 ```bash
 cd "C:\Users\User\Pictures\dev-muse-automaton-main\deno-backend"
 
-deployctl deploy --project=pening-bot --prod --token=YOUR_ACCESS_TOKEN main.ts
+deployctl deploy --project=rvcast --prod --token=YOUR_ACCESS_TOKEN main.ts
 ```
 
 **Get your access token:**
@@ -48,7 +48,7 @@ deployctl deploy --project=pening-bot --prod --token=YOUR_ACCESS_TOKEN main.ts
 ```bash
 cd "C:\Users\User\Pictures\dev-muse-automaton-main\deno-backend"
 
-deployctl deploy --project=pening-bot --prod main.ts
+deployctl deploy --project=rvcast --prod main.ts
 ```
 
 This will upload ALL files in the deno-backend directory to Deno Deploy.
@@ -65,7 +65,7 @@ If login doesn't work, use access token directly:
 4. Deploy with token:
 
 ```bash
-deployctl deploy --project=pening-bot --prod --token=ddp_xxxxxxxxxxxxx main.ts
+deployctl deploy --project=rvcast --prod --token=ddp_xxxxxxxxxxxxx main.ts
 ```
 
 ---

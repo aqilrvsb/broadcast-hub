@@ -107,12 +107,12 @@ CREATE TABLE device_setting (
 ## Webhook URL Pattern
 
 ```
-POST https://pening-bot.deno.dev/{device_id}/{instance}
+POST https://rvcast.deno.dev/{device_id}/{instance}
 ```
 
 **Example:**
 ```
-POST https://pening-bot.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001
+POST https://rvcast.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001
                                  ^^^^^^^^^^^^^^^^^ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                                  device_id         instance (webhook identifier)
 ```
@@ -156,7 +156,7 @@ FakhriAidilTLW-001  | UserChatBot_FakhriAidilTLW-001   | waha     | uuid-...
 
 ```bash
 cd "C:\Users\User\Pictures\dev-muse-automaton-main\deno-backend"
-deployctl deploy --project=pening-bot main.ts
+deployctl deploy --project=rvcast main.ts
 ```
 
 After deployment, test by sending a WhatsApp message to your bot!

@@ -101,7 +101,7 @@ BILLPLZ_COLLECTION_ID=your-collection-id
 
 # Configuration
 DEBOUNCE_DELAY_MS=4000
-SERVER_URL=https://pening-bot.deno.dev
+SERVER_URL=https://rvcast.deno.dev
 ```
 
 ## 🏃 Running Locally
@@ -126,7 +126,7 @@ Server will start on port 8000 (Deno default).
 
 ### Option 1: Using deployctl CLI
 ```bash
-deployctl deploy --project=pening-bot main.ts
+deployctl deploy --project=rvcast main.ts
 ```
 
 ### Option 2: GitHub Integration
@@ -139,7 +139,7 @@ deployctl deploy --project=pening-bot main.ts
 
 ### Health Check
 ```bash
-curl https://pening-bot.deno.dev/health
+curl https://rvcast.deno.dev/health
 ```
 
 Expected response:
@@ -152,14 +152,14 @@ Expected response:
 
 ### Webhook Verification (GET)
 ```bash
-curl "https://pening-bot.deno.dev/device123/webhook123?hub.challenge=test123"
+curl "https://rvcast.deno.dev/device123/webhook123?hub.challenge=test123"
 ```
 
 Expected: Returns `test123`
 
 ### Webhook Message (POST)
 ```bash
-curl -X POST https://pening-bot.deno.dev/device123/webhook123 \
+curl -X POST https://rvcast.deno.dev/device123/webhook123 \
   -H "Content-Type: application/json" \
   -d '{"phone":"6281234567890","message":"Hello","name":"Test"}'
 ```
@@ -176,7 +176,7 @@ Expected response:
 
 ### Login
 ```bash
-curl -X POST https://pening-bot.deno.dev/api/auth/login \
+curl -X POST https://rvcast.deno.dev/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","password":"password123"}'
 ```
@@ -279,7 +279,7 @@ Before going to production:
 ## 📞 Support
 
 For issues or questions:
-1. Check logs: https://dash.deno.com/projects/pening-bot/logs
+1. Check logs: https://dash.deno.com/projects/rvcast/logs
 2. Review documentation files
 3. Test endpoints individually
 4. Verify environment variables

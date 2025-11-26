@@ -73,7 +73,7 @@ deno-backend/
    ```
 
 3. **Set in Deno Deploy:**
-   - Go to: https://dash.deno.com/projects/pening-bot/settings
+   - Go to: https://dash.deno.com/projects/rvcast/settings
    - Add both keys to environment variables
 
 ---
@@ -81,16 +81,16 @@ deno-backend/
 ## 🚀 Deployment URLs
 
 ### Your Existing Deno Deploy Project:
-**https://pening-bot.deno.dev**
+**https://rvcast.deno.dev**
 
 ### New Webhook URL Format:
 ```
-https://pening-bot.deno.dev/{device_id}/{webhook_id}
+https://rvcast.deno.dev/{device_id}/{webhook_id}
 ```
 
 **Example:**
 ```
-https://pening-bot.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001
+https://rvcast.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001
 ```
 
 ### Endpoints Available:
@@ -159,7 +159,7 @@ https://pening-bot.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001
 ### Deploy Backend:
 ```bash
 cd c:\Users\aqilz\Documents\dev-muse-automaton-main\deno-backend
-deployctl deploy --project=pening-bot main.ts
+deployctl deploy --project=rvcast main.ts
 ```
 
 ### Test Backend Locally:
@@ -176,16 +176,16 @@ vercel
 
 ### Test Health Check:
 ```bash
-curl https://pening-bot.deno.dev/health
+curl https://rvcast.deno.dev/health
 ```
 
 ### Test Webhook:
 ```bash
 # GET (verification)
-curl https://pening-bot.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001?hub.challenge=test123
+curl https://rvcast.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001?hub.challenge=test123
 
 # POST (message)
-curl -X POST https://pening-bot.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001 \
+curl -X POST https://rvcast.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001 \
   -H "Content-Type: application/json" \
   -d '{"phone":"6281234567890","message":"Hello","name":"Test User"}'
 ```
@@ -234,7 +234,7 @@ Frontend (Vercel) ────────┐
 
 1. **Get SUPABASE_SERVICE_ROLE_KEY** from Supabase dashboard
 2. **Generate JWT_SECRET** using crypto
-3. **Deploy backend** to https://pening-bot.deno.dev
+3. **Deploy backend** to https://rvcast.deno.dev
 4. **Set environment variables** in Deno Deploy
 5. **Test backend** health endpoint
 6. **Deploy frontend** to Vercel
@@ -263,7 +263,7 @@ Your migration is complete when:
 If you encounter issues, check:
 1. `QUICK_START.md` - Fast deployment guide
 2. `DEPLOYMENT_GUIDE.md` - Detailed step-by-step guide
-3. Deno Deploy logs: https://dash.deno.com/projects/pening-bot/logs
+3. Deno Deploy logs: https://dash.deno.com/projects/rvcast/logs
 4. Vercel deployment logs
 5. Browser console for frontend errors
 

@@ -1,6 +1,6 @@
 # CHIP Payment Gateway Integration Guide
 
-Complete guide for implementing CHIP payment gateway in PeningBot for subscription management.
+Complete guide for implementing CHIP payment gateway in RVCAST for subscription management.
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -16,7 +16,7 @@ Complete guide for implementing CHIP payment gateway in PeningBot for subscripti
 
 ## Overview
 
-This integration replaces Billplz with CHIP Payment Gateway for handling subscription payments in PeningBot. The system uses:
+This integration replaces Billplz with CHIP Payment Gateway for handling subscription payments in RVCAST. The system uses:
 
 - **Supabase Edge Functions** for payment processing (not backend server)
 - **CHIP Payment Gateway** for payment processing
@@ -157,7 +157,7 @@ supabase secrets set CHIP_API_KEY=your_chip_api_key_here
 supabase secrets set CHIP_BRAND_ID=your_chip_brand_id_here
 
 # Set App Origin (your frontend URL)
-supabase secrets set APP_ORIGIN=https://peningbot.vercel.app
+supabase secrets set APP_ORIGIN=https://RVCAST.vercel.app
 ```
 
 Or via Supabase Dashboard:
@@ -172,7 +172,7 @@ Or via Supabase Dashboard:
 |--------|-------------|---------|
 | `CHIP_API_KEY` | Your CHIP API key | `pk_live_abc123...` |
 | `CHIP_BRAND_ID` | Your CHIP Brand ID | `brand_abc123` |
-| `APP_ORIGIN` | Your frontend URL | `https://peningbot.vercel.app` |
+| `APP_ORIGIN` | Your frontend URL | `https://RVCAST.vercel.app` |
 
 ### How to Find CHIP Credentials
 
@@ -234,7 +234,7 @@ The existing `packages.html` is for admin. For user-facing subscription, use thi
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Subscribe - PeningBot</title>
+    <title>Subscribe - RVCAST</title>
 </head>
 <body>
     <div id="packagesContainer"></div>

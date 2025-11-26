@@ -82,8 +82,8 @@ export default function Login() {
           <div className="inline-flex items-center gap-3 mb-4">
             <span className="text-5xl">🤖</span>
             <h1 className="text-4xl font-black">
-              <span className="text-gray-900">Pening</span>
-              <span className="text-primary-600">Bot</span>
+              <span className="text-gray-900">RV</span>
+              <span className="text-primary-600">CAST</span>
             </h1>
           </div>
           <p className="text-gray-600">Automate Your WhatsApp Conversations with AI</p>

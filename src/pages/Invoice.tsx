@@ -155,8 +155,8 @@ export default function Invoice() {
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-4xl">🤖</span>
                 <h1 className="text-3xl font-black">
-                  <span className="text-gray-900">Pening</span>
-                  <span className="text-primary-600">Bot</span>
+                  <span className="text-gray-900">RV</span>
+                  <span className="text-primary-600">CAST</span>
                 </h1>
               </div>
               <p className="text-gray-600">WhatsApp Chatbot Automation Platform</p>
@@ -259,7 +259,7 @@ export default function Invoice() {
           <div className="text-center pt-8 border-t border-gray-200">
             <p className="text-gray-600 text-sm mb-2">Thank you for your business!</p>
             <p className="text-gray-500 text-xs">
-              For any questions regarding this invoice, please contact us at support@peningbot.com
+              For any questions regarding this invoice, please contact us at support@RVCAST.com
             </p>
           </div>
         </div>

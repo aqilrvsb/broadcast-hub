@@ -289,7 +289,7 @@ export default function DeviceSettings() {
 
         // Step 2: Set webhook for this device
         setLoadingMessage('Registering webhook...')
-        const webhook = `https://pening-bot.deno.dev/${formData.device_id}/${whatsappCenterDeviceId}`
+        const webhook = `https://rvcast.deno.dev/${formData.device_id}/${whatsappCenterDeviceId}`
 
         const webhookResponse = await fetch(
           `${apiBase}?endpoint=setWebhook&device_id=${encodeURIComponent(whatsappCenterDeviceId)}&webhook=${encodeURIComponent(webhook)}`,
@@ -451,7 +451,7 @@ export default function DeviceSettings() {
 
         // Set webhook for new device
         setLoadingMessage('Registering webhook...')
-        const webhook = `https://pening-bot.deno.dev/${device.device_id}/${newWhatsappCenterDeviceId}`
+        const webhook = `https://rvcast.deno.dev/${device.device_id}/${newWhatsappCenterDeviceId}`
 
         const webhookResponse = await fetch(
           `${apiBase}?endpoint=setWebhook&device_id=${encodeURIComponent(newWhatsappCenterDeviceId)}&webhook=${encodeURIComponent(webhook)}`,

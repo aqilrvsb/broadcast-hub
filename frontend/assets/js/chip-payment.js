@@ -1,5 +1,5 @@
 /**
- * CHIP Payment Integration for PeningBot
+ * CHIP Payment Integration for RVCAST
  * Handles subscription payments via CHIP Payment Gateway
  */
 

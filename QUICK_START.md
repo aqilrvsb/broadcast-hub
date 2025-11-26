@@ -1,10 +1,10 @@
 # 🚀 Quick Start - Deploy to Deno Deploy
 
-Since you already have a Deno Deploy project at **https://pening-bot.deno.dev**, here's how to deploy the new backend:
+Since you already have a Deno Deploy project at **https://rvcast.deno.dev**, here's how to deploy the new backend:
 
 ## Step 1: Set Environment Variables in Deno Deploy
 
-Go to: https://dash.deno.com/projects/pening-bot/settings
+Go to: https://dash.deno.com/projects/rvcast/settings
 
 Add these environment variables:
 
@@ -14,7 +14,7 @@ SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 SUPABASE_SERVICE_ROLE_KEY=<GET_FROM_SUPABASE_DASHBOARD>
 JWT_SECRET=<GENERATE_NEW_SECRET>
 DEBOUNCE_DELAY_MS=4000
-SERVER_URL=https://pening-bot.deno.dev
+SERVER_URL=https://rvcast.deno.dev
 ```
 
 ## Step 2: Get Missing Keys
@@ -34,7 +34,7 @@ node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 
 ```bash
 cd c:\Users\aqilz\Documents\dev-muse-automaton-main\deno-backend
-deployctl deploy --project=pening-bot main.ts
+deployctl deploy --project=rvcast main.ts
 ```
 
 ### Option B: Via GitHub Integration
@@ -48,7 +48,7 @@ deployctl deploy --project=pening-bot main.ts
    ```
 
 2. In Deno Deploy dashboard:
-   - Go to: https://dash.deno.com/projects/pening-bot
+   - Go to: https://dash.deno.com/projects/rvcast
    - Click **"Settings"** → **"Git Integration"**
    - Connect to your GitHub repo
    - Set entry point: `deno-backend/main.ts`
@@ -56,7 +56,7 @@ deployctl deploy --project=pening-bot main.ts
 
 ## Step 4: Test Your Backend
 
-Visit: https://pening-bot.deno.dev/health
+Visit: https://rvcast.deno.dev/health
 
 Should return:
 ```json
@@ -70,12 +70,12 @@ Should return:
 
 Your new webhook format:
 ```
-https://pening-bot.deno.dev/{device_id}/{webhook_id}
+https://rvcast.deno.dev/{device_id}/{webhook_id}
 ```
 
 Example:
 ```
-https://pening-bot.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001
+https://rvcast.deno.dev/FakhriAidilTLW-001/UserChatBot_FakhriAidilTLW-001
 ```
 
 Update this in your WhatsApp provider dashboard.
@@ -88,7 +88,7 @@ Update this in your WhatsApp provider dashboard.
    ```
    VITE_SUPABASE_URL=https://bjnjucwpwdzgsnqmpmff.supabase.co
    VITE_SUPABASE_ANON_KEY=eyJhbGc...
-   VITE_API_URL=https://pening-bot.deno.dev
+   VITE_API_URL=https://rvcast.deno.dev
    ```
 4. Deploy!
 

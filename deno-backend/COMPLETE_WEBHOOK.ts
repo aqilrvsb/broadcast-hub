@@ -23,7 +23,7 @@ const config = {
   supabaseAnonKey: Deno.env.get("SUPABASE_ANON_KEY") || "",
   supabaseServiceKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
   debounceDelayMs: parseInt(Deno.env.get("DEBOUNCE_DELAY_MS") || "8000"),
-  serverUrl: Deno.env.get("SERVER_URL") || "https://pening-bot.deno.dev",
+  serverUrl: Deno.env.get("SERVER_URL") || "https://rvcast.deno.dev",
   wahaApiUrl: Deno.env.get("WAHA_API_URL") || "https://waha-plus-production-705f.up.railway.app",
   wahaApiKey: Deno.env.get("WAHA_API_KEY") || "",
 };

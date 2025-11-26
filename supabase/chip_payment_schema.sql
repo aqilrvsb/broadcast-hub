@@ -160,7 +160,7 @@ CREATE TRIGGER update_payments_updated_at
 -- 2. Set environment variables in Supabase Edge Functions:
 --    - CHIP_API_KEY: Your CHIP API key
 --    - CHIP_BRAND_ID: Your CHIP Brand ID
---    - APP_ORIGIN: Your frontend URL (e.g., https://peningbot.vercel.app)
+--    - APP_ORIGIN: Your frontend URL (e.g., https://RVCAST.vercel.app)
 -- 3. Deploy the edge function: cd supabase/functions && supabase functions deploy chip-payment-topup
 -- 4. Configure CHIP webhook URL: https://[YOUR-SUPABASE-PROJECT].supabase.co/functions/v1/chip-payment-topup
 -- ============================================================================

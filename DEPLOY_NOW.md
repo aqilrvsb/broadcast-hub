@@ -41,7 +41,7 @@ Deploy the updated code to Deno Deploy with both fixes applied.
 cd "C:\Users\User\Pictures\dev-muse-automaton-main\deno-backend"
 
 # Deploy to Deno Deploy
-deployctl deploy --project=pening-bot main.ts
+deployctl deploy --project=rvcast main.ts
 ```
 
 ### Option 2: Deploy via GitHub (if linked)
@@ -64,14 +64,14 @@ After deployment, test the webhook:
 
 ```bash
 # Test health check
-curl https://pening-bot.deno.dev/health
+curl https://rvcast.deno.dev/health
 
 # Expected response:
 # {"status":"ok","service":"dev-muse-automaton-deno"}
 ```
 
 Then send a test message from WhatsApp and check the logs:
-https://dash.deno.com/projects/pening-bot/logs
+https://dash.deno.com/projects/rvcast/logs
 
 ---
 
@@ -156,7 +156,7 @@ Test by sending "Hello" from your WhatsApp number to the bot!
 ### If deployment fails:
 
 **Check environment variables are set:**
-- Go to: https://dash.deno.com/projects/pening-bot/settings
+- Go to: https://dash.deno.com/projects/rvcast/settings
 - Required variables:
   - `SUPABASE_URL`
   - `SUPABASE_ANON_KEY`
@@ -193,7 +193,7 @@ If no results, create a prompt via the frontend Prompts page.
 
 ```bash
 cd "C:\Users\User\Pictures\dev-muse-automaton-main\deno-backend"
-deployctl deploy --project=pening-bot main.ts
+deployctl deploy --project=rvcast main.ts
 ```
 
-Watch the logs: https://dash.deno.com/projects/pening-bot/logs
+Watch the logs: https://dash.deno.com/projects/rvcast/logs

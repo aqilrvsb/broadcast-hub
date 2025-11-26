@@ -1,9 +1,9 @@
 /**
  * WhatsApp Chatbot Webhook Handler
  *
- * Deployed on Deno Deploy (pening-bot.deno.dev)
+ * Deployed on Deno Deploy (rvcast.deno.dev)
  *
- * Pattern: https://pening-bot.deno.dev/{device_id}/{webhook_id}
+ * Pattern: https://rvcast.deno.dev/{device_id}/{webhook_id}
  *
  * Supports:
  * - GET: Webhook verification (returns hub.challenge)
@@ -245,7 +245,7 @@ ${conversationHistory}`;
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`,
-        "HTTP-Referer": "https://pening-bot.deno.dev",
+        "HTTP-Referer": "https://rvcast.deno.dev",
         "X-Title": "Dev Muse Automaton",
       },
       body: JSON.stringify(payload),

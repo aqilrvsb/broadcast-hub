@@ -226,8 +226,8 @@ export default function FlowBuilder() {
               <div className="flex items-center gap-3">
                 <span className="text-3xl">🤖</span>
                 <h1 className="text-xl font-black">
-                  <span className="text-gray-900">Pening</span>
-                  <span className="text-primary-600">Bot</span>
+                  <span className="text-gray-900">RV</span>
+                  <span className="text-primary-600">CAST</span>
                 </h1>
               </div>
               <button
