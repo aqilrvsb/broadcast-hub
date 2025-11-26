@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
-import { supabase } from '../lib/supabase'
+import { supabase, Device, ContactCategory } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import Swal from 'sweetalert2'
 
@@ -8,6 +8,8 @@ type Sequence = {
   id: string
   user_id: string
   name: string
+  device_id: string
+  category_id: string
   niche: string
   trigger: string
   description: string
@@ -18,6 +20,8 @@ type Sequence = {
   created_at: string
   updated_at: string
   contact_count?: number
+  device?: Device
+  category?: ContactCategory
 }
 
 type SequenceFlow = {
@@ -34,12 +38,6 @@ type SequenceFlow = {
   updated_at: string
 }
 
-type Prompt = {
-  id: string
-  niche: string
-  prompts_name: string
-}
-
 type BankImage = {
   id: string
   name: string
@@ -49,7 +47,8 @@ type BankImage = {
 export default function Sequences() {
   const { user } = useAuth()
   const [sequences, setSequences] = useState<Sequence[]>([])
-  const [prompts, setPrompts] = useState<Prompt[]>([])
+  const [devices, setDevices] = useState<Device[]>([])
+  const [contactCategories, setContactCategories] = useState<ContactCategory[]>([])
   const [bankImages, setBankImages] = useState<BankImage[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -63,9 +62,11 @@ export default function Sequences() {
   // Form state for creating/editing sequences
   const [formData, setFormData] = useState({
     name: '',
-    niche: '',
-    trigger: '',
-    description: '',
+    device_id: '',
+    category_id: '',
+    niche: '', // Keep for backward compatibility
+    trigger: '', // Keep for backward compatibility
+    description: '', // Keep for backward compatibility
     schedule_time: '09:00', // Keep in state for backward compatibility but won't show in UI
     min_delay: 5,
     max_delay: 15,
@@ -85,7 +86,7 @@ export default function Sequences() {
 
   useEffect(() => {
     loadSequences()
-    loadPrompts()
+    loadDevices()
     loadBankImages()
   }, [])
 
@@ -104,23 +105,47 @@ export default function Sequences() {
 
       if (error) throw error
 
-      // Fetch contact counts for each sequence
+      // Fetch contact counts, device and category info for each sequence
       if (sequencesData) {
-        const sequencesWithCounts = await Promise.all(
+        const sequencesWithDetails = await Promise.all(
           sequencesData.map(async (seq) => {
             const { count } = await supabase
               .from('sequence_enrollments')
               .select('*', { count: 'exact', head: true })
               .eq('sequence_id', seq.id)
 
+            // Fetch device info if device_id exists
+            let device = null
+            if (seq.device_id) {
+              const { data: deviceData } = await supabase
+                .from('device_setting')
+                .select('*')
+                .eq('id', seq.device_id)
+                .single()
+              device = deviceData
+            }
+
+            // Fetch category info if category_id exists
+            let category = null
+            if (seq.category_id) {
+              const { data: categoryData } = await supabase
+                .from('contact_categories')
+                .select('*')
+                .eq('id', seq.category_id)
+                .single()
+              category = categoryData
+            }
+
             return {
               ...seq,
               contact_count: count || 0,
+              device,
+              category,
             }
           })
         )
 
-        setSequences(sequencesWithCounts)
+        setSequences(sequencesWithDetails)
       }
     } catch (error) {
       console.error('Error loading sequences:', error)
@@ -134,20 +159,41 @@ export default function Sequences() {
     }
   }
 
-  const loadPrompts = async () => {
+  const loadDevices = async () => {
     try {
       if (!user?.id) return
 
       const { data, error } = await supabase
-        .from('prompts')
-        .select('id, niche, prompts_name')
+        .from('device_setting')
+        .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      setPrompts(data || [])
+      setDevices(data || [])
     } catch (error) {
-      console.error('Error loading prompts:', error)
+      console.error('Error loading devices:', error)
+    }
+  }
+
+  const loadContactCategories = async (deviceId: string) => {
+    try {
+      if (!user?.id || !deviceId) {
+        setContactCategories([])
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('contact_categories')
+        .select('*')
+        .eq('device_id', deviceId)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setContactCategories(data || [])
+    } catch (error) {
+      console.error('Error loading contact categories:', error)
     }
   }
 
@@ -232,14 +278,21 @@ export default function Sequences() {
     setCurrentSequence(sequence)
     setFormData({
       name: sequence.name,
-      niche: sequence.niche,
-      trigger: sequence.trigger,
-      description: sequence.description,
+      device_id: sequence.device_id || '',
+      category_id: sequence.category_id || '',
+      niche: sequence.niche || '',
+      trigger: sequence.trigger || '',
+      description: sequence.description || '',
       schedule_time: sequence.schedule_time,
       min_delay: sequence.min_delay,
       max_delay: sequence.max_delay,
       status: sequence.status,
     })
+
+    // Load contact categories for the selected device
+    if (sequence.device_id) {
+      await loadContactCategories(sequence.device_id)
+    }
 
     // Load flows for this sequence
     try {
@@ -511,6 +564,8 @@ export default function Sequences() {
   const resetForm = () => {
     setFormData({
       name: '',
+      device_id: '',
+      category_id: '',
       niche: '',
       trigger: '',
       description: '',
@@ -519,6 +574,7 @@ export default function Sequences() {
       max_delay: 15,
       status: 'inactive',
     })
+    setContactCategories([])
   }
 
   const resetFlowForm = () => {
@@ -594,13 +650,10 @@ export default function Sequences() {
 
                 <div className="space-y-2 mb-4 text-sm">
                   <div>
-                    <p className="text-gray-500">Niche: {sequence.niche}</p>
+                    <p className="text-gray-500">Device: <span className="text-gray-900 font-medium">{sequence.device?.device_id || 'Not set'}</span></p>
                   </div>
                   <div>
-                    <p className="text-gray-500">Trigger: {sequence.trigger}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-900 font-medium">{sequence.description}</p>
+                    <p className="text-gray-500">Category: <span className="text-gray-900 font-medium">{sequence.category?.name || 'Not set'}</span></p>
                   </div>
                 </div>
 
@@ -659,63 +712,67 @@ export default function Sequences() {
               </div>
 
               <form onSubmit={handleCreateSequence} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Broadcast Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    required
+                  />
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Broadcast Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Niche <span className="text-red-500">*</span>
+                      Device <span className="text-red-500">*</span>
                     </label>
                     <select
-                      value={formData.niche}
-                      onChange={(e) => setFormData({ ...formData, niche: e.target.value })}
+                      value={formData.device_id}
+                      onChange={(e) => {
+                        const deviceId = e.target.value
+                        setFormData({ ...formData, device_id: deviceId, category_id: '' })
+                        loadContactCategories(deviceId)
+                      }}
                       className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
                       required
                     >
-                      <option value="">Select Niche from Prompts</option>
-                      {prompts.map((prompt) => (
-                        <option key={prompt.id} value={prompt.niche}>
-                          {prompt.niche} ({prompt.prompts_name})
+                      <option value="">Select Device</option>
+                      {devices.map((device) => (
+                        <option key={device.id} value={device.id}>
+                          {device.device_id} ({device.phone_number || 'No phone'})
                         </option>
                       ))}
                     </select>
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Stage Trigger</label>
-                  <input
-                    type="text"
-                    value={formData.trigger}
-                    onChange={(e) => setFormData({ ...formData, trigger: e.target.value })}
-                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    placeholder="e.g., fitness_start, onboarding_begin"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">This trigger will be used to identify and enroll leads into this sequence</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Broadcast Description <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    rows={3}
-                    required
-                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Category Contact <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.category_id}
+                      onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                      className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      required
+                      disabled={!formData.device_id}
+                    >
+                      <option value="">
+                        {formData.device_id ? 'Select Category Contact' : 'Select Device First'}
+                      </option>
+                      {contactCategories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                    {formData.device_id && contactCategories.length === 0 && (
+                      <p className="text-xs text-amber-600 mt-1">No categories found for this device. Create categories first.</p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -816,61 +873,67 @@ export default function Sequences() {
               </div>
 
               <form onSubmit={handleUpdateSequence} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Broadcast Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    required
+                  />
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Broadcast Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Niche <span className="text-red-500">*</span>
+                      Device <span className="text-red-500">*</span>
                     </label>
                     <select
-                      value={formData.niche}
-                      onChange={(e) => setFormData({ ...formData, niche: e.target.value })}
+                      value={formData.device_id}
+                      onChange={(e) => {
+                        const deviceId = e.target.value
+                        setFormData({ ...formData, device_id: deviceId, category_id: '' })
+                        loadContactCategories(deviceId)
+                      }}
                       className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
                       required
                     >
-                      <option value="">Select Niche from Prompts</option>
-                      {prompts.map((prompt) => (
-                        <option key={prompt.id} value={prompt.niche}>
-                          {prompt.niche} ({prompt.prompts_name})
+                      <option value="">Select Device</option>
+                      {devices.map((device) => (
+                        <option key={device.id} value={device.id}>
+                          {device.device_id} ({device.phone_number || 'No phone'})
                         </option>
                       ))}
                     </select>
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Stage Trigger</label>
-                  <input
-                    type="text"
-                    value={formData.trigger}
-                    onChange={(e) => setFormData({ ...formData, trigger: e.target.value })}
-                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Broadcast Description <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    rows={3}
-                    required
-                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Category Contact <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.category_id}
+                      onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                      className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      required
+                      disabled={!formData.device_id}
+                    >
+                      <option value="">
+                        {formData.device_id ? 'Select Category Contact' : 'Select Device First'}
+                      </option>
+                      {contactCategories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                    {formData.device_id && contactCategories.length === 0 && (
+                      <p className="text-xs text-amber-600 mt-1">No categories found for this device. Create categories first.</p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
