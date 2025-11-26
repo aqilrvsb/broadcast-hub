@@ -60,6 +60,19 @@ export default function Sequences() {
   const [sequenceFlows, setSequenceFlows] = useState<SequenceFlow[]>([])
   const [tempFlows, setTempFlows] = useState<SequenceFlow[]>([]) // For create modal
 
+  // Filter states
+  const getFirstDayOfMonth = () => {
+    const date = new Date()
+    return new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0]
+  }
+  const getLastDayOfMonth = () => {
+    const date = new Date()
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split('T')[0]
+  }
+  const [filterStartDate, setFilterStartDate] = useState(getFirstDayOfMonth())
+  const [filterEndDate, setFilterEndDate] = useState(getLastDayOfMonth())
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
+
   // Form state for creating/editing sequences
   const [formData, setFormData] = useState({
     name: '',
@@ -644,6 +657,32 @@ export default function Sequences() {
     return tomorrow.toISOString().split('T')[0]
   }
 
+  // Filter sequences based on date range and status
+  const filteredSequences = sequences.filter((sequence) => {
+    // Filter by status
+    if (filterStatus !== 'all' && sequence.status !== filterStatus) {
+      return false
+    }
+
+    // Filter by date range (based on schedule_date)
+    if (sequence.schedule_date) {
+      const scheduleDate = new Date(sequence.schedule_date)
+      const startDate = new Date(filterStartDate)
+      const endDate = new Date(filterEndDate)
+
+      // Set time to start of day for comparison
+      scheduleDate.setHours(0, 0, 0, 0)
+      startDate.setHours(0, 0, 0, 0)
+      endDate.setHours(23, 59, 59, 999)
+
+      if (scheduleDate < startDate || scheduleDate > endDate) {
+        return false
+      }
+    }
+
+    return true
+  })
+
   return (
     <Layout>
       <div className="p-8">
@@ -664,20 +703,72 @@ export default function Sequences() {
           </button>
         </div>
 
+        {/* Filters */}
+        <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+              <input
+                type="date"
+                value={filterStartDate}
+                onChange={(e) => setFilterStartDate(e.target.value)}
+                className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+              <input
+                type="date"
+                value={filterEndDate}
+                onChange={(e) => setFilterEndDate(e.target.value)}
+                className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
+                className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Lock</option>
+                <option value="inactive">Pending</option>
+              </select>
+            </div>
+            <div>
+              <button
+                onClick={() => {
+                  setFilterStartDate(getFirstDayOfMonth())
+                  setFilterEndDate(getLastDayOfMonth())
+                  setFilterStatus('all')
+                }}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors"
+              >
+                Reset Filters
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Broadcast List */}
         {loading ? (
           <div className="text-center py-12">
             <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-primary-500 border-r-transparent"></div>
             <p className="mt-4 text-gray-600">Loading broadcast...</p>
           </div>
-        ) : sequences.length === 0 ? (
+        ) : filteredSequences.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-xl p-12 text-center shadow-sm">
-            <p className="text-gray-600 text-lg">No broadcast created yet</p>
-            <p className="text-gray-500 mt-2">Click "Create Broadcast" to get started</p>
+            <p className="text-gray-600 text-lg">
+              {sequences.length === 0 ? 'No broadcast created yet' : 'No broadcast found matching filters'}
+            </p>
+            <p className="text-gray-500 mt-2">
+              {sequences.length === 0 ? 'Click "Create Broadcast" to get started' : 'Try adjusting your filter criteria'}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sequences.map((sequence) => (
+            {filteredSequences.map((sequence) => (
               <div key={sequence.id} className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-4">
                   <div>
