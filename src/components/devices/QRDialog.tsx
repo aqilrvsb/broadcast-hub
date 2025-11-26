@@ -108,6 +108,13 @@ export const QRDialog = ({
     return () => clearInterval(interval);
   }, [open, device, onOpenChange, onConnectionSuccess, toast]);
 
+  // Reset countdown when modal closes
+  useEffect(() => {
+    if (!open) {
+      setCountdown(10);
+    }
+  }, [open]);
+
   // Reset countdown when isRefreshing becomes false (refresh completed)
   useEffect(() => {
     if (!isRefreshing && isValidQR && open) {
