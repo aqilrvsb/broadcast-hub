@@ -9,12 +9,12 @@ export default function Login() {
   const [success, setSuccess] = useState('')
 
   // Login form
-  const [loginEmail, setLoginEmail] = useState('')
+  const [loginIdStaff, setLoginIdStaff] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
 
   // Register form
   const [registerName, setRegisterName] = useState('')
-  const [registerEmail, setRegisterEmail] = useState('')
+  const [registerIdStaff, setRegisterIdStaff] = useState('')
   const [registerPassword, setRegisterPassword] = useState('')
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState('')
 
@@ -26,7 +26,7 @@ export default function Login() {
     setError('')
     setLoading(true)
 
-    const { error: signInError } = await signIn(loginEmail, loginPassword)
+    const { error: signInError } = await signIn(loginIdStaff, loginPassword)
 
     setLoading(false)
 
@@ -58,29 +58,36 @@ export default function Login() {
       return
     }
 
-    const { error: signUpError } = await signUp(registerEmail, registerPassword, registerName)
+    // Validate ID Staff
+    if (!registerIdStaff.trim()) {
+      setError('ID Staff is required')
+      setLoading(false)
+      return
+    }
+
+    const { error: signUpError } = await signUp(registerIdStaff, registerPassword, registerName)
 
     if (signUpError) {
       setError(signUpError)
       setLoading(false)
     } else {
-      setSuccess('Registration successful! Please check your email to confirm your account.')
+      setSuccess('Registration successful! You can now sign in.')
       setLoading(false)
       // Clear form
       setRegisterName('')
-      setRegisterEmail('')
+      setRegisterIdStaff('')
       setRegisterPassword('')
       setRegisterConfirmPassword('')
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-orange-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo/Brand */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-4">
-            <span className="text-5xl">🤖</span>
+            <span className="text-5xl">☀️</span>
             <h1 className="text-4xl font-black">
               <span className="text-gray-900">RV</span>
               <span className="text-primary-600">CAST</span>
@@ -106,14 +113,14 @@ export default function Login() {
               <form onSubmit={handleLogin} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-2">
-                    Email Address
+                    ID Staff
                   </label>
                   <input
-                    type="email"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
+                    type="text"
+                    value={loginIdStaff}
+                    onChange={(e) => setLoginIdStaff(e.target.value)}
                     className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    placeholder="you@example.com"
+                    placeholder="Enter your ID Staff"
                     required
                   />
                 </div>
@@ -191,14 +198,14 @@ export default function Login() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-2">
-                    Email Address
+                    ID Staff
                   </label>
                   <input
-                    type="email"
-                    value={registerEmail}
-                    onChange={(e) => setRegisterEmail(e.target.value)}
+                    type="text"
+                    value={registerIdStaff}
+                    onChange={(e) => setRegisterIdStaff(e.target.value)}
                     className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    placeholder="you@example.com"
+                    placeholder="Enter your ID Staff"
                     required
                   />
                 </div>

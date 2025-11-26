@@ -14,7 +14,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 // Types
 export type User = {
   id: string
-  email: string
+  email: string // This field stores ID Staff
   full_name: string
   phone?: string
   password?: string
@@ -29,6 +29,7 @@ export type User = {
   role?: string
   created_at: string
   updated_at: string
+  last_login?: string
   packages?: {
     name: string
   }

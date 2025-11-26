@@ -1,14 +1,12 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { Session } from '@supabase/supabase-js'
 import { supabase, User } from '../lib/supabase'
 import { useNavigate } from 'react-router-dom'
 
 type AuthContextType = {
-  session: Session | null
   user: User | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>
+  signIn: (idStaff: string, password: string) => Promise<{ error: string | null }>
+  signUp: (idStaff: string, password: string, fullName: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   refreshUser: () => Promise<void>
   isSubscriptionExpired: () => boolean
@@ -16,13 +14,15 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+// Session storage key
+const SESSION_KEY = 'rvcast_user_session'
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
-  // Fetch user profile from public.user table
+  // Fetch user profile from public.user table by ID
   const fetchUserProfile = async (userId: string): Promise<User | null> => {
     try {
       const { data, error } = await supabase
@@ -33,25 +33,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('Error fetching user profile:', error)
-
-        // If RLS is blocking, create a basic user object from auth data
-        if (error.code === 'PGRST301' || error.message?.includes('row-level security')) {
-          console.warn('RLS blocking user fetch - returning basic user object')
-          const { data: { user: authUser } } = await supabase.auth.getUser()
-          if (authUser) {
-            return {
-              id: authUser.id,
-              email: authUser.email || '',
-              full_name: authUser.user_metadata?.full_name || '',
-              is_active: true,
-              status: 'Trial',
-              subscription_status: 'inactive',
-              max_devices: 0,
-              created_at: authUser.created_at,
-              updated_at: new Date().toISOString(),
-            } as User
-          }
-        }
         return null
       }
 
@@ -62,113 +43,94 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Check if user is active
-  const checkUserActive = async (userId: string): Promise<boolean> => {
-    try {
-      const { data, error } = await supabase
-        .from('user')
-        .select('is_active')
-        .eq('id', userId)
-        .single()
-
-      if (error) {
-        console.warn('Error checking user active status:', error)
-        // If any error (including RLS), assume user is active to prevent lockout
-        // This is safer than blocking legitimate users
-        return true
-      }
-
-      // If no data returned, assume active
-      if (!data) {
-        console.warn('No user data returned - assuming active')
-        return true
-      }
-
-      return data.is_active === true
-    } catch (error) {
-      console.error('Error checking user active status:', error)
-      return true // Allow access on error to prevent lockout
-    }
-  }
-
   // Refresh user profile
   const refreshUser = async () => {
-    const { data: { session: currentSession } } = await supabase.auth.getSession()
-
-    if (currentSession?.user) {
-      const profile = await fetchUserProfile(currentSession.user.id)
-      setUser(profile)
+    const storedSession = localStorage.getItem(SESSION_KEY)
+    if (storedSession) {
+      try {
+        const { userId } = JSON.parse(storedSession)
+        const profile = await fetchUserProfile(userId)
+        setUser(profile)
+      } catch {
+        setUser(null)
+      }
     } else {
       setUser(null)
     }
   }
 
-  // Sign in
-  const signIn = async (email: string, password: string) => {
-    let loginEmail = email
+  // Sign in with ID Staff and password
+  const signIn = async (idStaff: string, password: string) => {
+    try {
+      // Look up user by email field (which now stores ID Staff)
+      const { data, error } = await supabase
+        .from('user')
+        .select('*')
+        .eq('email', idStaff)
+        .single()
 
-    // If input is not an email, look up email from user table
-    if (!email.includes('@')) {
-      const { data, error: lookupError } = await supabase.functions.invoke('get-email-from-user', {
-        body: { identifier: email },
-      })
-
-      if (lookupError || !data?.email) {
-        return { error: 'Invalid email or password' }
+      if (error || !data) {
+        return { error: 'Invalid ID Staff or password' }
       }
 
-      loginEmail = data.email
-    }
+      // Check password
+      if (data.password !== password) {
+        return { error: 'Invalid ID Staff or password' }
+      }
 
-    // Sign in with Supabase Auth
-    const { data: authData, error } = await supabase.auth.signInWithPassword({
-      email: loginEmail,
-      password,
-    })
-
-    if (error) {
-      return { error: error.message }
-    }
-
-    // Check if user is active
-    if (authData?.user) {
-      const isActive = await checkUserActive(authData.user.id)
-
-      if (!isActive) {
-        await supabase.auth.signOut()
+      // Check if user is active
+      if (!data.is_active) {
         return { error: 'Your account has been deactivated' }
       }
-    }
 
-    return { error: null }
+      // Store session in localStorage
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ userId: data.id }))
+
+      // Update last login
+      await supabase
+        .from('user')
+        .update({ last_login: new Date().toISOString() })
+        .eq('id', data.id)
+
+      setUser(data as User)
+      return { error: null }
+    } catch (error) {
+      console.error('Sign in error:', error)
+      return { error: 'Network error. Please try again.' }
+    }
   }
 
-  // Sign up
-  const signUp = async (email: string, password: string, fullName: string) => {
+  // Sign up with ID Staff
+  const signUp = async (idStaff: string, password: string, fullName: string) => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-          },
-        },
-      })
+      // Check if ID Staff already exists
+      const { data: existingUser } = await supabase
+        .from('user')
+        .select('id')
+        .eq('email', idStaff)
+        .single()
 
-      if (error) {
-        return { error: error.message }
+      if (existingUser) {
+        return { error: 'ID Staff already exists' }
       }
 
-      // Save password to public.user table for admin reference
-      // Wait a moment for the trigger to create the user record first
-      if (data?.user) {
-        setTimeout(async () => {
-          await supabase
-            .from('user')
-            .update({ password: password })
-            .eq('id', data.user!.id)
-        }, 1000)
+      // Create new user in public.user table
+      const { error } = await supabase
+        .from('user')
+        .insert({
+          email: idStaff, // Using email field to store ID Staff
+          full_name: fullName,
+          password: password,
+          is_active: true,
+          status: 'Trial',
+          subscription_status: 'inactive',
+          max_devices: 1,
+          role: 'user',
+        })
+
+      if (error) {
+        console.error('Sign up error:', error)
+        return { error: error.message }
       }
 
       return { error: null }
@@ -180,8 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Sign out
   const signOut = async () => {
-    await supabase.auth.signOut()
-    setSession(null)
+    localStorage.removeItem(SESSION_KEY)
     setUser(null)
     navigate('/')
   }
@@ -207,44 +168,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return today >= endDate
   }
 
-  // Initialize auth state
+  // Initialize auth state from localStorage
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, newSession) => {
-        setSession(newSession)
-
-        if (newSession?.user) {
-          // Defer profile fetching
-          setTimeout(async () => {
-            const profile = await fetchUserProfile(newSession.user.id)
-            if (profile) {
-              setUser(profile)
-            }
-          }, 0)
-        } else {
+    const initAuth = async () => {
+      const storedSession = localStorage.getItem(SESSION_KEY)
+      if (storedSession) {
+        try {
+          const { userId } = JSON.parse(storedSession)
+          const profile = await fetchUserProfile(userId)
+          if (profile && profile.is_active) {
+            setUser(profile)
+          } else {
+            // User not found or inactive, clear session
+            localStorage.removeItem(SESSION_KEY)
+            setUser(null)
+          }
+        } catch {
+          localStorage.removeItem(SESSION_KEY)
           setUser(null)
         }
       }
-    )
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
-      setSession(initialSession)
-      if (initialSession?.user) {
-        const profile = await fetchUserProfile(initialSession.user.id)
-        if (profile) {
-          setUser(profile)
-        }
-      }
       setLoading(false)
-    })
+    }
 
-    return () => subscription.unsubscribe()
+    initAuth()
   }, [])
 
   const value = {
-    session,
     user,
     loading,
     signIn,

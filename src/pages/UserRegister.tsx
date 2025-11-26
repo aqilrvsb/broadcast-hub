@@ -207,28 +207,11 @@ export default function UserRegister() {
     setLoggingIn(targetUser.id)
 
     try {
-      // Call edge function to get session tokens
-      const { data, error } = await supabase.functions.invoke('admin-login-as-user', {
-        body: { userId: targetUser.id }
-      })
+      // Set the user session in localStorage and redirect
+      localStorage.setItem('rvcast_user_session', JSON.stringify({ userId: targetUser.id }))
 
-      if (error) throw error
-
-      if (data?.session) {
-        // Sign out current admin first
-        await supabase.auth.signOut()
-
-        // Set the new session directly
-        await supabase.auth.setSession({
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token
-        })
-
-        // Redirect to dashboard
-        window.location.href = '/dashboard'
-      } else {
-        throw new Error('No session received')
-      }
+      // Redirect to dashboard
+      window.location.href = '/dashboard'
     } catch (error) {
       console.error('Error logging in as user:', error)
       setLoggingIn(null)
@@ -287,7 +270,7 @@ export default function UserRegister() {
         <div style="text-align: left; font-family: monospace; font-size: 14px;">
           <p><strong>ID:</strong> ${targetUser.id}</p>
           <p><strong>Full Name:</strong> ${targetUser.full_name || '-'}</p>
-          <p><strong>Email:</strong> ${targetUser.email}</p>
+          <p><strong>ID Staff:</strong> ${targetUser.email}</p>
           <p><strong>Phone:</strong> ${targetUser.phone || '-'}</p>
           <p><strong>Password:</strong> ${targetUser.password || '-'}</p>
           <p><strong>Status:</strong> ${targetUser.status || '-'}</p>
@@ -326,7 +309,7 @@ export default function UserRegister() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by name, email, or phone..."
+                placeholder="Search by name, ID Staff, or phone..."
                 className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
@@ -378,7 +361,7 @@ export default function UserRegister() {
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">No</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Full Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Email</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">ID Staff</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Phone</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Password</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Package</th>
