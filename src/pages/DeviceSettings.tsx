@@ -18,6 +18,8 @@ export default function DeviceSettings() {
   const [isCheckingDeviceId, setIsCheckingDeviceId] = useState(false)
   const [deviceIdExists, setDeviceIdExists] = useState(false)
   const [deviceIdError, setDeviceIdError] = useState('')
+  const [phoneError, setPhoneError] = useState('')
+  const [isCheckingPhone, setIsCheckingPhone] = useState(false)
   const [deviceStatuses, setDeviceStatuses] = useState<Record<string, string>>({})
   const [isCheckingStatus, setIsCheckingStatus] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState('')
@@ -165,26 +167,39 @@ export default function DeviceSettings() {
     setDeviceStatuses(statuses)
   }
 
-  const checkDeviceIdExists = async (deviceId: string) => {
-    if (!deviceId.trim()) {
-      setDeviceIdExists(false)
-      setDeviceIdError('')
+  // Generate auto Device ID: RV + ID Staff + (count)
+  const generateDeviceId = () => {
+    if (!user?.email) return ''
+    const idStaff = user.email // email field stores ID Staff
+    const nextNumber = devices.length + 1
+    return `RV${idStaff}(${nextNumber})`
+  }
+
+  // Check phone number: 10-13 digits, unique across all devices
+  const checkPhoneNumber = async (phone: string) => {
+    setPhoneError('')
+
+    if (!phone.trim()) {
+      return // Phone is optional
+    }
+
+    // Remove any non-digit characters for validation
+    const digitsOnly = phone.replace(/\D/g, '')
+
+    // Check length (10-13 digits)
+    if (digitsOnly.length < 10 || digitsOnly.length > 13) {
+      setPhoneError('Phone number must be 10-13 digits')
       return
     }
 
-    if (!user?.id) {
-      return
-    }
-
-    setIsCheckingDeviceId(true)
-    setDeviceIdError('')
+    setIsCheckingPhone(true)
 
     try {
+      // Check if phone number already exists in any device
       const { data, error } = await supabase
         .from('device_setting')
-        .select('device_id')
-        .eq('device_id', deviceId.trim())
-        .eq('user_id', user.id)
+        .select('phone_number')
+        .eq('phone_number', phone.trim())
         .maybeSingle()
 
       if (error) {
@@ -192,26 +207,23 @@ export default function DeviceSettings() {
       }
 
       if (data) {
-        setDeviceIdExists(true)
-        setDeviceIdError('This Device ID is already in use. Please choose a different one.')
+        setPhoneError('This phone number is already registered to another device')
       } else {
-        setDeviceIdExists(false)
-        setDeviceIdError('')
+        setPhoneError('')
       }
     } catch (error: any) {
-      console.error('Error checking device ID:', error)
-      setDeviceIdExists(false)
-      setDeviceIdError('')
+      console.error('Error checking phone number:', error)
+      setPhoneError('')
     } finally {
-      setIsCheckingDeviceId(false)
+      setIsCheckingPhone(false)
     }
   }
 
-  const handleDeviceIdChange = (value: string) => {
-    setFormData({ ...formData, device_id: value })
+  const handlePhoneChange = (value: string) => {
+    setFormData({ ...formData, phone_number: value })
     // Debounce the check
     const timer = setTimeout(() => {
-      checkDeviceIdExists(value)
+      checkPhoneNumber(value)
     }, 500)
     return () => clearTimeout(timer)
   }
@@ -226,6 +238,27 @@ export default function DeviceSettings() {
         text: 'User not logged in',
       })
       return
+    }
+
+    // Validate phone number if provided
+    if (formData.phone_number) {
+      const digitsOnly = formData.phone_number.replace(/\D/g, '')
+      if (digitsOnly.length < 10 || digitsOnly.length > 13) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Invalid Phone Number',
+          text: 'Phone number must be 10-13 digits',
+        })
+        return
+      }
+      if (phoneError) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Phone Number Error',
+          text: phoneError,
+        })
+        return
+      }
     }
 
     try {
@@ -254,13 +287,19 @@ export default function DeviceSettings() {
       setIsCheckingStatus(true)
       setLoadingMessage('Creating device...')
 
+      // Auto-generate Device ID
+      const autoDeviceId = generateDeviceId()
+
       const deviceId = crypto.randomUUID()
       const { error } = await supabase
         .from('device_setting')
         .insert({
           id: deviceId,
           user_id: user.id,
-          ...formData,
+          device_id: autoDeviceId,
+          phone_number: formData.phone_number,
+          provider: 'waha',
+          api_key_option: 'openai/gpt-4.1',
         })
 
       if (error) throw error
@@ -269,7 +308,7 @@ export default function DeviceSettings() {
       setLoadingMessage('Adding device to WhatsApp Center...')
 
       const apiBase = '/api/whacenter'
-      const deviceName = formData.device_id
+      const deviceName = autoDeviceId
       const phoneNumber = formData.phone_number || ''
 
       // Step 1: Add device to WhatsApp Center
@@ -289,7 +328,7 @@ export default function DeviceSettings() {
 
         // Step 2: Set webhook for this device
         setLoadingMessage('Registering webhook...')
-        const webhook = `https://rvcast.deno.dev/${formData.device_id}/${whatsappCenterDeviceId}`
+        const webhook = `https://rvcast.deno.dev/${autoDeviceId}/${whatsappCenterDeviceId}`
 
         const webhookResponse = await fetch(
           `${apiBase}?endpoint=setWebhook&device_id=${encodeURIComponent(whatsappCenterDeviceId)}&webhook=${encodeURIComponent(webhook)}`,
@@ -806,46 +845,50 @@ export default function DeviceSettings() {
               <form onSubmit={handleAddDevice} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Device ID *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Device ID (Auto-generated)</label>
                     <input
                       type="text"
-                      value={formData.device_id}
-                      onChange={(e) => handleDeviceIdChange(e.target.value)}
+                      value={generateDeviceId()}
+                      className="w-full bg-gray-100 border border-gray-300 text-gray-600 rounded-lg px-4 py-2 cursor-not-allowed"
+                      readOnly
+                      disabled
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Format: RV + ID Staff + (count)</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
+                    <input
+                      type="text"
+                      value={formData.phone_number}
+                      onChange={(e) => handlePhoneChange(e.target.value)}
+                      placeholder="e.g., 60123456789"
                       className={`w-full bg-white border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 ${
-                        deviceIdError
+                        phoneError
                           ? 'border-red-500 focus:ring-red-500'
                           : 'border-gray-300 focus:ring-primary-500'
                       } text-gray-900`}
                       required
                     />
-                    {isCheckingDeviceId && (
+                    {isCheckingPhone && (
                       <p className="text-xs text-gray-500 mt-1">Checking availability...</p>
                     )}
-                    {deviceIdError && (
-                      <p className="text-xs text-red-600 mt-1">{deviceIdError}</p>
+                    {phoneError && (
+                      <p className="text-xs text-red-600 mt-1">{phoneError}</p>
                     )}
-                    {formData.device_id && !deviceIdError && !isCheckingDeviceId && (
-                      <p className="text-xs text-green-600 mt-1">✓ Device ID is available</p>
+                    {formData.phone_number && !phoneError && !isCheckingPhone && formData.phone_number.replace(/\D/g, '').length >= 10 && (
+                      <p className="text-xs text-green-600 mt-1">✓ Phone number is available</p>
                     )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
-                    <input
-                      type="text"
-                      value={formData.phone_number}
-                      onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                      className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    />
+                    <p className="text-xs text-gray-500 mt-1">Must be 10-13 digits, unique across all devices</p>
                   </div>
                 </div>
 
                 <div className="flex gap-4 mt-6">
                   <button
                     type="submit"
-                    disabled={deviceIdExists || isCheckingDeviceId || !formData.device_id}
+                    disabled={isCheckingPhone || !!phoneError || !formData.phone_number || formData.phone_number.replace(/\D/g, '').length < 10}
                     className={`flex-1 px-6 py-3 rounded-lg font-medium transition-colors ${
-                      deviceIdExists || isCheckingDeviceId || !formData.device_id
+                      isCheckingPhone || !!phoneError || !formData.phone_number || formData.phone_number.replace(/\D/g, '').length < 10
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         : 'bg-primary-600 hover:bg-primary-700 text-white'
                     }`}
@@ -865,9 +908,8 @@ export default function DeviceSettings() {
                         api_key: '',
                         phone_number: '',
                       })
-                      setDeviceIdExists(false)
-                      setDeviceIdError('')
-                      setIsCheckingDeviceId(false)
+                      setPhoneError('')
+                      setIsCheckingPhone(false)
                     }}
                     className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-medium transition-colors"
                   >
