@@ -245,6 +245,17 @@ export default function Sequences() {
 
     if (!user?.id) return
 
+    // Check if Flow 1 exists
+    const hasFlow1 = tempFlows.some(f => f.flow_number === 1)
+    if (!hasFlow1) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Flow 1 Required',
+        text: 'Please set up at least Flow 1 before creating a broadcast.',
+      })
+      return
+    }
+
     try {
       // Create sequence first
       const { data: sequenceData, error: sequenceError } = await supabase
