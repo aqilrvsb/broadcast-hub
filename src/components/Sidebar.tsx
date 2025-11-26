@@ -21,7 +21,7 @@ export default function Sidebar() {
     { path: '/device-settings', icon: '⚙️', label: 'Device Settings' },
     // { path: '/prompts', icon: '📝', label: 'Prompts' }, // Hidden
     // { path: '/chatbot-ai', icon: '🤖', label: 'Chatbot AI' }, // Hidden
-    { path: '/sequences', icon: '📨', label: 'Sequences' },
+    { path: '/sequences', icon: '📢', label: 'Broadcast' },
     { path: '/bank-image', icon: '🏦', label: 'Bank Image' },
     // { path: '/profile', icon: '👤', label: 'Profile' }, // Hidden
     // { path: '/billings', icon: '💳', label: 'Billings' }, // Hidden

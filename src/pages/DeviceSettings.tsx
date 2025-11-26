@@ -304,14 +304,14 @@ export default function DeviceSettings() {
 
       if (error) throw error
 
-      // Automatically add device and register with WhatsApp Center
+      // Add device to WhatsApp Center (without webhook)
       setLoadingMessage('Adding device to WhatsApp Center...')
 
       const apiBase = '/api/whacenter'
       const deviceName = autoDeviceId
       const phoneNumber = formData.phone_number || ''
 
-      // Step 1: Add device to WhatsApp Center
+      // Add device to WhatsApp Center
       const addDeviceResponse = await fetch(
         `${apiBase}?endpoint=addDevice&name=${encodeURIComponent(deviceName)}&number=${encodeURIComponent(phoneNumber)}`,
         {
@@ -326,56 +326,38 @@ export default function DeviceSettings() {
       if (addDeviceData.success && addDeviceData.data && addDeviceData.data.device && addDeviceData.data.device.device_id) {
         const whatsappCenterDeviceId = addDeviceData.data.device.device_id
 
-        // Step 2: Set webhook for this device
-        setLoadingMessage('Registering webhook...')
-        const webhook = `https://rvcast.deno.dev/${autoDeviceId}/${whatsappCenterDeviceId}`
-
-        const webhookResponse = await fetch(
-          `${apiBase}?endpoint=setWebhook&device_id=${encodeURIComponent(whatsappCenterDeviceId)}&webhook=${encodeURIComponent(webhook)}`,
-          {
-            method: 'GET'
-          }
-        )
-
-        const webhookData = await webhookResponse.json()
-
-        if (webhookData.success) {
-          // Update device with instance (device_id) and webhook_id
-          await supabase
-            .from('device_setting')
-            .update({
-              instance: whatsappCenterDeviceId,
-              webhook_id: webhook,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', deviceId)
-
-          setIsCheckingStatus(false)
-
-          // Reset form and close modal
-          setFormData({
-            device_id: '',
-            instance: '',
-            webhook_id: '',
-            provider: 'waha',
-            api_key_option: 'openai/gpt-4.1',
-            api_key: '',
-            phone_number: '',
+        // Update device with instance (device_id) - no webhook
+        await supabase
+          .from('device_setting')
+          .update({
+            instance: whatsappCenterDeviceId,
+            updated_at: new Date().toISOString(),
           })
-          setShowAddModal(false)
+          .eq('id', deviceId)
 
-          await Swal.fire({
-            icon: 'success',
-            title: 'Device Created Successfully!',
-            text: 'Device added and webhook registered with WhatsApp Center.',
-            timer: 3000,
-            showConfirmButton: false,
-          })
+        setIsCheckingStatus(false)
 
-          loadDevices()
-        } else {
-          throw new Error(`Failed to set webhook: ${JSON.stringify(webhookData)}`)
-        }
+        // Reset form and close modal
+        setFormData({
+          device_id: '',
+          instance: '',
+          webhook_id: '',
+          provider: 'waha',
+          api_key_option: 'openai/gpt-4.1',
+          api_key: '',
+          phone_number: '',
+        })
+        setShowAddModal(false)
+
+        await Swal.fire({
+          icon: 'success',
+          title: 'Device Created Successfully!',
+          text: 'Device added to WhatsApp Center.',
+          timer: 3000,
+          showConfirmButton: false,
+        })
+
+        loadDevices()
       } else {
         throw new Error(`Failed to add device to WhatsApp Center: ${JSON.stringify(addDeviceData)}`)
       }
@@ -456,7 +438,7 @@ export default function DeviceSettings() {
     }
   }
 
-  // Refresh button handler - Delete device from API, create new, register webhook, update DB, show QR
+  // Refresh button handler - Delete device from API, create new, update DB, show QR (no webhook)
   const handleRefreshQR = async (device: Device) => {
     const apiBase = '/api/whacenter'
 
@@ -488,30 +470,16 @@ export default function DeviceSettings() {
       if (addDeviceData.success && addDeviceData.data && addDeviceData.data.device && addDeviceData.data.device.device_id) {
         const newWhatsappCenterDeviceId = addDeviceData.data.device.device_id
 
-        // Set webhook for new device
-        setLoadingMessage('Registering webhook...')
-        const webhook = `https://rvcast.deno.dev/${device.device_id}/${newWhatsappCenterDeviceId}`
+        // Update only instance in database (no webhook)
+        await supabase
+          .from('device_setting')
+          .update({
+            instance: newWhatsappCenterDeviceId
+          })
+          .eq('id', device.id)
 
-        const webhookResponse = await fetch(
-          `${apiBase}?endpoint=setWebhook&device_id=${encodeURIComponent(newWhatsappCenterDeviceId)}&webhook=${encodeURIComponent(webhook)}`,
-          { method: 'GET' }
-        )
-
-        const webhookData = await webhookResponse.json()
-
-        if (webhookData.success) {
-          // Update only instance in database (don't delete from database)
-          await supabase
-            .from('device_setting')
-            .update({
-              instance: newWhatsappCenterDeviceId,
-              webhook_id: webhook
-            })
-            .eq('id', device.id)
-
-          // Update local device object
-          device.instance = newWhatsappCenterDeviceId
-        }
+        // Update local device object
+        device.instance = newWhatsappCenterDeviceId
       }
 
       // Get QR code for new device
