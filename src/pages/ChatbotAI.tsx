@@ -909,7 +909,7 @@ ${conv.conv_last || 'No conversation history'}
                           <button
                             onClick={() => viewSequences(conv.prospect_num)}
                             className="text-purple-600 hover:text-purple-800 transition-smooth text-lg"
-                            title="View Scheduled Sequences"
+                            title="View Scheduled Broadcast"
                           >
                             📅
                           </button>

@@ -126,7 +126,7 @@ export default function Sequences() {
       console.error('Error loading sequences:', error)
       await Swal.fire({
         icon: 'error',
-        title: 'Error Loading Sequences',
+        title: 'Error Loading Broadcast',
         text: 'Failed to load sequences',
       })
     } finally {
@@ -208,7 +208,7 @@ export default function Sequences() {
 
       await Swal.fire({
         icon: 'success',
-        title: 'Sequence Created!',
+        title: 'Broadcast Created!',
         text: 'Your sequence has been created successfully.',
         timer: 2000,
         showConfirmButton: false,
@@ -222,7 +222,7 @@ export default function Sequences() {
       console.error('Error creating sequence:', error)
       await Swal.fire({
         icon: 'error',
-        title: 'Failed to Create Sequence',
+        title: 'Failed to Create Broadcast',
         text: error.message || 'Failed to create sequence',
       })
     }
@@ -280,7 +280,7 @@ export default function Sequences() {
 
       await Swal.fire({
         icon: 'success',
-        title: 'Sequence Updated!',
+        title: 'Broadcast Updated!',
         text: 'Your sequence has been updated successfully.',
         timer: 2000,
         showConfirmButton: false,
@@ -295,7 +295,7 @@ export default function Sequences() {
       console.error('Error updating sequence:', error)
       await Swal.fire({
         icon: 'error',
-        title: 'Failed to Update Sequence',
+        title: 'Failed to Update Broadcast',
         text: error.message || 'Failed to update sequence',
       })
     }
@@ -304,7 +304,7 @@ export default function Sequences() {
   const handleDeleteSequence = async (id: string) => {
     const result = await Swal.fire({
       icon: 'warning',
-      title: 'Delete Sequence?',
+      title: 'Delete Broadcast?',
       text: 'This will also delete all flows and enrollments for this sequence. This action cannot be undone.',
       showCancelButton: true,
       confirmButtonText: 'Yes, delete it',
@@ -325,7 +325,7 @@ export default function Sequences() {
       await Swal.fire({
         icon: 'success',
         title: 'Deleted!',
-        text: 'Sequence has been deleted successfully.',
+        text: 'Broadcast has been deleted successfully.',
         timer: 2000,
         showConfirmButton: false,
       })
@@ -547,7 +547,7 @@ export default function Sequences() {
       <div className="p-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-3xl font-bold text-gray-900">Message Sequences</h2>
+            <h2 className="text-3xl font-bold text-gray-900">Broadcast</h2>
             <p className="text-gray-600">Create automated drip campaigns for your contacts</p>
           </div>
           <button
@@ -558,20 +558,20 @@ export default function Sequences() {
             className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center gap-2"
           >
             <span>⊕</span>
-            <span>Create Sequence</span>
+            <span>Create Broadcast</span>
           </button>
         </div>
 
-        {/* Sequences List */}
+        {/* Broadcast List */}
         {loading ? (
           <div className="text-center py-12">
             <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-primary-500 border-r-transparent"></div>
-            <p className="mt-4 text-gray-600">Loading sequences...</p>
+            <p className="mt-4 text-gray-600">Loading broadcast...</p>
           </div>
         ) : sequences.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-xl p-12 text-center shadow-sm">
-            <p className="text-gray-600 text-lg">No sequences created yet</p>
-            <p className="text-gray-500 mt-2">Click "Create Sequence" to get started</p>
+            <p className="text-gray-600 text-lg">No broadcast created yet</p>
+            <p className="text-gray-500 mt-2">Click "Create Broadcast" to get started</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -640,12 +640,12 @@ export default function Sequences() {
           </div>
         )}
 
-        {/* Create Sequence Modal */}
+        {/* Create Broadcast Modal */}
         {showCreateModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-xl p-6 w-full max-w-5xl my-8 shadow-xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold text-gray-900">Create New Sequence</h3>
+                <h3 className="text-2xl font-bold text-gray-900">Create New Broadcast</h3>
                 <button
                   onClick={() => {
                     setShowCreateModal(false)
@@ -662,7 +662,7 @@ export default function Sequences() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Sequence Name <span className="text-red-500">*</span>
+                      Broadcast Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -707,7 +707,7 @@ export default function Sequences() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Sequence Description <span className="text-red-500">*</span>
+                    Broadcast Description <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     value={formData.description}
@@ -742,9 +742,9 @@ export default function Sequences() {
                   </div>
                 </div>
 
-                {/* Sequence Flow Grid */}
+                {/* Broadcast Flow Grid */}
                 <div className="mt-6">
-                  <h4 className="text-lg font-bold text-gray-900 mb-4">Sequence Flow</h4>
+                  <h4 className="text-lg font-bold text-gray-900 mb-4">Broadcast Flow</h4>
                   <div className="grid grid-cols-7 gap-2">
                     {Array.from({ length: 31 }, (_, i) => i + 1).map((flowNum) => (
                       <button
@@ -788,7 +788,7 @@ export default function Sequences() {
                     type="submit"
                     className="flex-1 bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
                   >
-                    Create Sequence
+                    Create Broadcast
                   </button>
                 </div>
               </form>
@@ -796,12 +796,12 @@ export default function Sequences() {
           </div>
         )}
 
-        {/* Edit Sequence Modal */}
+        {/* Edit Broadcast Modal */}
         {showEditModal && currentSequence && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-xl p-6 w-full max-w-5xl my-8 shadow-xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold text-gray-900">Edit Sequence</h3>
+                <h3 className="text-2xl font-bold text-gray-900">Edit Broadcast</h3>
                 <button
                   onClick={() => {
                     setShowEditModal(false)
@@ -819,7 +819,7 @@ export default function Sequences() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Sequence Name <span className="text-red-500">*</span>
+                      Broadcast Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -862,7 +862,7 @@ export default function Sequences() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Sequence Description <span className="text-red-500">*</span>
+                    Broadcast Description <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     value={formData.description}
@@ -897,9 +897,9 @@ export default function Sequences() {
                   </div>
                 </div>
 
-                {/* Sequence Flow Grid */}
+                {/* Broadcast Flow Grid */}
                 <div className="mt-6">
-                  <h4 className="text-lg font-bold text-gray-900 mb-4">Sequence Flow</h4>
+                  <h4 className="text-lg font-bold text-gray-900 mb-4">Broadcast Flow</h4>
                   <div className="grid grid-cols-7 gap-2">
                     {Array.from({ length: 31 }, (_, i) => i + 1).map((flowNum) => (
                       <button
@@ -944,7 +944,7 @@ export default function Sequences() {
                     type="submit"
                     className="flex-1 bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
                   >
-                    Update Sequence
+                    Update Broadcast
                   </button>
                 </div>
               </form>
