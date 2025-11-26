@@ -51,22 +51,22 @@ export const AddDeviceDialog = ({ open, onOpenChange, onSuccess }: AddDeviceDial
         return;
       }
 
-      // Check and delete existing device
-      const { data: existingDevices } = await supabase
+      // Check device limit (max 3 devices per user)
+      const { data: existingDevices, error: countError } = await supabase
         .from('devices')
-        .select('device_id')
+        .select('id', { count: 'exact' })
         .eq('user_id', user.id);
 
-      if (existingDevices && existingDevices.length > 0 && existingDevices[0].device_id) {
-        const oldDeviceId = existingDevices[0].device_id;
-        console.log('Deleting old device:', oldDeviceId);
-        
-        await fetch(`/api/whacenter?endpoint=deleteDevice&device_id=${encodeURIComponent(oldDeviceId)}`);
-        
-        await supabase
-          .from('devices')
-          .delete()
-          .eq('user_id', user.id);
+      if (countError) throw countError;
+
+      if (existingDevices && existingDevices.length >= 3) {
+        toast({
+          title: "Device Limit Reached",
+          description: "You can only add up to 3 devices. Please delete an existing device first.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
       }
 
       // Add device to WhatsApp Center
