@@ -54,6 +54,9 @@ const Devices = () => {
   };
 
   const checkAllDeviceStatuses = async (deviceList: Device[]) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
     for (const device of deviceList) {
       if (!device.device_id) {
         // No instance - NOT_SETUP
@@ -66,7 +69,12 @@ const Devices = () => {
 
       try {
         const statusResponse = await fetch(
-          `/api/whacenter?endpoint=statusDevice&device_id=${encodeURIComponent(device.device_id)}`
+          `/api/whacenter?endpoint=statusDevice&device_id=${encodeURIComponent(device.device_id)}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+          }
         );
         const statusData = await statusResponse.json();
 
@@ -129,8 +137,18 @@ const Devices = () => {
 
     try {
       // Check device status
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("No active session");
+      }
+
       const statusResponse = await fetch(
-        `/api/whacenter?endpoint=statusDevice&device_id=${encodeURIComponent(device.device_id)}`
+        `/api/whacenter?endpoint=statusDevice&device_id=${encodeURIComponent(device.device_id)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }
       );
       const statusData = await statusResponse.json();
 
@@ -153,7 +171,12 @@ const Devices = () => {
 
       // Get QR code if not connected
       const qrResponse = await fetch(
-        `/api/whacenter?endpoint=qr&device_id=${encodeURIComponent(device.device_id)}`
+        `/api/whacenter?endpoint=qr&device_id=${encodeURIComponent(device.device_id)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }
       );
       const qrData = await qrResponse.json();
 
@@ -213,18 +236,33 @@ const Devices = () => {
         throw new Error("User not authenticated");
       }
 
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("No active session");
+      }
+
       // 1. Delete old device from WhatsApp Center
       if (selectedDevice.device_id) {
         console.log('Deleting old device:', selectedDevice.device_id);
         await fetch(
-          `/api/whacenter?endpoint=deleteDevice&device_id=${encodeURIComponent(selectedDevice.device_id)}`
+          `/api/whacenter?endpoint=deleteDevice&device_id=${encodeURIComponent(selectedDevice.device_id)}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+          }
         );
       }
 
       // 2. Create new device
       console.log('Creating new device...');
       const addResponse = await fetch(
-        `/api/whacenter?endpoint=addDevice&name=${encodeURIComponent(user.id)}&number=${encodeURIComponent(selectedDevice.phone_number)}`
+        `/api/whacenter?endpoint=addDevice&name=${encodeURIComponent(user.id)}&number=${encodeURIComponent(selectedDevice.phone_number)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }
       );
       const addData = await addResponse.json();
 
@@ -236,7 +274,12 @@ const Devices = () => {
 
       // 3. Set webhook for new device
       await fetch(
-        `/api/whacenter?endpoint=setWebhook&device_id=${encodeURIComponent(newDeviceId)}&webhook=`
+        `/api/whacenter?endpoint=setWebhook&device_id=${encodeURIComponent(newDeviceId)}&webhook=`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }
       );
 
       // 4. Update database with new device ID
@@ -251,7 +294,12 @@ const Devices = () => {
 
       // 5. Get fresh QR code
       const qrResponse = await fetch(
-        `/api/whacenter?endpoint=qr&device_id=${encodeURIComponent(newDeviceId)}`
+        `/api/whacenter?endpoint=qr&device_id=${encodeURIComponent(newDeviceId)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }
       );
       const qrData = await qrResponse.json();
 
@@ -292,9 +340,19 @@ const Devices = () => {
     if (!device.device_id) return;
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("No active session");
+      }
+
       // Delete from WhatsApp Center
       await fetch(
-        `/api/whacenter?endpoint=deleteDevice&device_id=${encodeURIComponent(device.device_id)}`
+        `/api/whacenter?endpoint=deleteDevice&device_id=${encodeURIComponent(device.device_id)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }
       );
 
       // Delete from database

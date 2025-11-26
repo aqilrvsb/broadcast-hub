@@ -193,8 +193,19 @@ export const AddDeviceDialog = ({ open, onOpenChange, onSuccess }: AddDeviceDial
 
       // Add device to WhatsApp Center
       console.log('Adding device to WhatsApp Center...');
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("No active session");
+      }
+
       const addResponse = await fetch(
-        `/api/whacenter?endpoint=addDevice&name=${encodeURIComponent(user.id)}&number=${encodeURIComponent(phoneNumber.trim())}`
+        `/api/whacenter?endpoint=addDevice&name=${encodeURIComponent(user.id)}&number=${encodeURIComponent(phoneNumber.trim())}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }
       );
       
       const addData = await addResponse.json();
@@ -207,7 +218,14 @@ export const AddDeviceDialog = ({ open, onOpenChange, onSuccess }: AddDeviceDial
       const deviceId = addData.data.device.device_id;
 
       // Set webhook
-      await fetch(`/api/whacenter?endpoint=setWebhook&device_id=${encodeURIComponent(deviceId)}&webhook=`);
+      await fetch(
+        `/api/whacenter?endpoint=setWebhook&device_id=${encodeURIComponent(deviceId)}&webhook=`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }
+      );
 
       // Save to database
       const { error: dbError } = await supabase
