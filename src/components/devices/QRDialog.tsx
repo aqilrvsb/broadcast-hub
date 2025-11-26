@@ -31,7 +31,6 @@ export const QRDialog = ({
 
   useEffect(() => {
     if (!open || !isValidQR || isRefreshing) {
-      setCountdown(10);
       return;
     }
 
@@ -39,8 +38,9 @@ export const QRDialog = ({
     const interval = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
+          // Trigger refresh when countdown hits 0
           onRefresh();
-          return 10; // Reset countdown after triggering refresh
+          return 0; // Stay at 0 until refresh completes
         }
         return prev - 1;
       });
