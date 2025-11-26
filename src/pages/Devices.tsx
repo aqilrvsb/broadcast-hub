@@ -465,6 +465,8 @@ const Devices = () => {
         isValidQR={isValidQR}
         onRefresh={handleRefreshQR}
         isRefreshing={isRefreshing}
+        device={selectedDevice}
+        onConnectionSuccess={fetchDevices}
       />
     </div>
   );

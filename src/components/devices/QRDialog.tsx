@@ -7,6 +7,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2, RefreshCw, AlertTriangle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface QRDialogProps {
   open: boolean;
@@ -16,6 +18,8 @@ interface QRDialogProps {
   isValidQR: boolean;
   onRefresh: () => void;
   isRefreshing?: boolean;
+  device?: any;
+  onConnectionSuccess?: () => void;
 }
 
 export const QRDialog = ({ 
@@ -25,10 +29,14 @@ export const QRDialog = ({
   deviceName, 
   isValidQR,
   onRefresh,
-  isRefreshing = false
+  isRefreshing = false,
+  device,
+  onConnectionSuccess
 }: QRDialogProps) => {
   const [countdown, setCountdown] = useState(10);
+  const { toast } = useToast();
 
+  // Auto-close countdown
   useEffect(() => {
     if (!open || !isValidQR || isRefreshing) {
       setCountdown(10);
@@ -49,6 +57,56 @@ export const QRDialog = ({
 
     return () => clearInterval(interval);
   }, [open, isValidQR, isRefreshing, onOpenChange]);
+
+  // Poll device status every 3 seconds to detect connection
+  useEffect(() => {
+    if (!open || !device?.device_id) {
+      return;
+    }
+
+    const checkStatus = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const statusResponse = await fetch(
+          `/api/whacenter?endpoint=statusDevice&device_id=${encodeURIComponent(device.device_id)}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+          }
+        );
+        const statusData = await statusResponse.json();
+
+        if (statusData.status && statusData.data?.status === 'CONNECTED') {
+          // Device connected! Update database and close modal
+          await supabase
+            .from('devices')
+            .update({ status: 'CONNECTED' })
+            .eq('device_id', device.device_id);
+
+          toast({
+            title: "Device Connected!",
+            description: "Your WhatsApp device is now connected successfully.",
+          });
+
+          onOpenChange(false);
+          onConnectionSuccess?.();
+        }
+      } catch (error) {
+        console.error('Status check error:', error);
+      }
+    };
+
+    // Check immediately
+    checkStatus();
+
+    // Then check every 3 seconds
+    const interval = setInterval(checkStatus, 3000);
+
+    return () => clearInterval(interval);
+  }, [open, device, onOpenChange, onConnectionSuccess, toast]);
 
   // Reset countdown when isRefreshing becomes false (refresh completed)
   useEffect(() => {
