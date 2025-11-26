@@ -129,6 +129,7 @@ export default function Sequences() {
 
             // Fetch category info if category_id exists
             let category = null
+            let leadsCount = 0
             if (seq.category_id) {
               const { data: categoryData } = await supabase
                 .from('contact_categories')
@@ -136,13 +137,20 @@ export default function Sequences() {
                 .eq('id', seq.category_id)
                 .single()
               category = categoryData
+
+              // Fetch leads count for this category
+              const { count: categoryLeadsCount } = await supabase
+                .from('leads')
+                .select('*', { count: 'exact', head: true })
+                .eq('category_id', seq.category_id)
+              leadsCount = categoryLeadsCount || 0
             }
 
             return {
               ...seq,
               contact_count: count || 0,
               device,
-              category,
+              category: category ? { ...category, leads_count: leadsCount } : null,
             }
           })
         )
@@ -674,6 +682,16 @@ export default function Sequences() {
                   </div>
                   <div>
                     <p className="text-gray-500">Category: <span className="text-gray-900 font-medium">{sequence.category?.name || 'Not set'}</span></p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Total Leads: <span className="text-primary-600 font-bold">{sequence.category?.leads_count || 0}</span></p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Schedule: <span className="text-gray-900 font-medium">
+                      {sequence.schedule_date
+                        ? `${new Date(sequence.schedule_date).toLocaleDateString()} ${sequence.schedule_time || '09:00'}`
+                        : 'Not scheduled'}
+                    </span></p>
                   </div>
                 </div>
 
