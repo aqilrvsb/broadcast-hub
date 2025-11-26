@@ -191,7 +191,23 @@ export default function Sequences() {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      setContactCategories(data || [])
+
+      // Get leads count for each category
+      const categoriesWithCounts = await Promise.all(
+        (data || []).map(async (category) => {
+          const { count } = await supabase
+            .from('leads')
+            .select('*', { count: 'exact', head: true })
+            .eq('category_id', category.id)
+
+          return {
+            ...category,
+            leads_count: count || 0,
+          }
+        })
+      )
+
+      setContactCategories(categoriesWithCounts)
     } catch (error) {
       console.error('Error loading contact categories:', error)
     }
@@ -765,7 +781,7 @@ export default function Sequences() {
                       </option>
                       {contactCategories.map((category) => (
                         <option key={category.id} value={category.id}>
-                          {category.name}
+                          {category.name} ({category.leads_count || 0} leads)
                         </option>
                       ))}
                     </select>
@@ -926,7 +942,7 @@ export default function Sequences() {
                       </option>
                       {contactCategories.map((category) => (
                         <option key={category.id} value={category.id}>
-                          {category.name}
+                          {category.name} ({category.leads_count || 0} leads)
                         </option>
                       ))}
                     </select>
