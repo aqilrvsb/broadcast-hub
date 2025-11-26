@@ -1,261 +1,344 @@
 -- ================================================
 -- CHATBOT AUTOMATION PLATFORM - DATABASE SCHEMA
 -- ================================================
--- Version: 2.0 Postgres-optimized
--- Date: 2025-10-21
+-- Version: 3.0 - Latest Production Schema
 -- ================================================
 
 -- Extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS citext;
 
--- Clean slate (drops only the tables you declared)
-DROP TABLE IF EXISTS orders CASCADE;
-DROP TABLE IF EXISTS stageSetValue CASCADE;
-DROP TABLE IF EXISTS wasapBot_session CASCADE;
-DROP TABLE IF EXISTS ai_whatsapp_session CASCADE;
-DROP TABLE IF EXISTS wasapBot CASCADE;
-DROP TABLE IF EXISTS ai_whatsapp CASCADE;
-DROP TABLE IF EXISTS chatbot_flows CASCADE;
-DROP TABLE IF EXISTS device_setting CASCADE;
-DROP TABLE IF EXISTS user_sessions CASCADE;
-DROP TABLE IF EXISTS "user" CASCADE;
+-- ================================================
+-- TABLE: packages (must be created first - referenced by user)
+-- ================================================
+CREATE TABLE public.packages (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL,
+  description text,
+  price numeric NOT NULL,
+  currency character varying DEFAULT 'MYR'::character varying,
+  duration_days integer NOT NULL DEFAULT 30,
+  max_devices integer NOT NULL DEFAULT 1,
+  features jsonb DEFAULT '[]'::jsonb,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT packages_pkey PRIMARY KEY (id)
+);
 
 -- ================================================
 -- TABLE: user
 -- ================================================
-CREATE TABLE "user" (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  email citext NOT NULL UNIQUE,
-  full_name varchar(255) NOT NULL,
-  password varchar(255) NOT NULL,
-  gmail varchar(255),
-  phone varchar(20),
-  status varchar(255) DEFAULT 'Trial',
-  expired varchar(255),
-  is_active boolean DEFAULT TRUE,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  last_login timestamptz
+CREATE TABLE public.user (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  email character varying NOT NULL UNIQUE,
+  full_name character varying NOT NULL,
+  gmail character varying,
+  phone character varying,
+  status character varying DEFAULT 'Trial'::character varying,
+  expired character varying,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  last_login timestamp with time zone,
+  package_id uuid,
+  subscription_status character varying DEFAULT 'inactive'::character varying,
+  subscription_start timestamp with time zone,
+  subscription_end timestamp with time zone,
+  max_devices integer DEFAULT 1,
+  role character varying DEFAULT 'user'::character varying,
+  password character varying,
+  CONSTRAINT user_pkey PRIMARY KEY (id),
+  CONSTRAINT user_package_id_fkey FOREIGN KEY (package_id) REFERENCES public.packages(id)
 );
 
--- Explicit email index is redundant because of UNIQUE, but keep a named one if desired
-CREATE INDEX IF NOT EXISTS user_email_idx ON "user"(email);
-
--- ================================================
--- TABLE: user_sessions
--- ================================================
-CREATE TABLE user_sessions (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id uuid NOT NULL,
-  token varchar(255) NOT NULL UNIQUE,
-  expires_at timestamptz NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT fk_user_sessions_user
-    FOREIGN KEY (user_id) REFERENCES "user"(id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS user_sessions_token_idx ON user_sessions(token);
-CREATE INDEX IF NOT EXISTS user_sessions_user_id_idx ON user_sessions(user_id);
-CREATE INDEX IF NOT EXISTS user_sessions_expires_at_idx ON user_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS user_email_idx ON public.user(email);
 
 -- ================================================
 -- TABLE: device_setting
 -- ================================================
-CREATE TABLE device_setting (
-  id varchar(255) PRIMARY KEY,
-  device_id varchar(255),
+CREATE TABLE public.device_setting (
+  id character varying NOT NULL,
+  device_id character varying,
   instance text,
-  webhook_id varchar(500),
-  provider varchar(20) DEFAULT 'waha' CHECK (provider IN ('whacenter','wablas','waha')),
-  api_key_option varchar(100) DEFAULT 'openai/gpt-4.1' CHECK (api_key_option IN (
-    'openai/gpt-5-chat',
-    'openai/gpt-5-mini',
-    'openai/chatgpt-4o-latest',
-    'openai/gpt-4.1',
-    'google/gemini-2.5-pro',
-    'google/gemini-pro-1.5'
-  )),
+  webhook_id character varying,
+  provider character varying DEFAULT 'waha'::character varying CHECK (provider::text = ANY (ARRAY['whacenter'::character varying, 'wablas'::character varying, 'waha'::character varying]::text[])),
+  api_key_option character varying DEFAULT 'openai/gpt-4.1'::character varying CHECK (api_key_option::text = ANY (ARRAY['openai/gpt-5-chat'::character varying, 'openai/gpt-5-mini'::character varying, 'openai/chatgpt-4o-latest'::character varying, 'openai/gpt-4.1'::character varying, 'google/gemini-2.5-pro'::character varying, 'google/gemini-pro-1.5'::character varying]::text[])),
   api_key text,
-  id_device varchar(255),
-  id_erp varchar(255),
-  id_admin varchar(255),
-  phone_number varchar(20),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
+  id_device character varying,
+  id_erp character varying,
+  id_admin character varying,
+  phone_number character varying,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
   user_id uuid,
-  CONSTRAINT fk_device_setting_user
-    FOREIGN KEY (user_id) REFERENCES "user"(id) ON DELETE SET NULL
+  status character varying DEFAULT 'UNKNOWN'::character varying,
+  CONSTRAINT device_setting_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_device_setting_user FOREIGN KEY (user_id) REFERENCES public.user(id)
 );
 
-CREATE INDEX IF NOT EXISTS device_setting_device_id_idx ON device_setting(device_id);
-CREATE INDEX IF NOT EXISTS device_setting_provider_idx ON device_setting(provider);
--- RLS support: users manage own devices (by user_id)
-CREATE INDEX IF NOT EXISTS device_setting_user_id_idx ON device_setting(user_id);
--- If id_device acts as unique business key, consider UNIQUE(id_device)
--- CREATE UNIQUE INDEX IF NOT EXISTS device_setting_id_device_uidx ON device_setting(id_device);
+CREATE INDEX IF NOT EXISTS device_setting_device_id_idx ON public.device_setting(device_id);
+CREATE INDEX IF NOT EXISTS device_setting_provider_idx ON public.device_setting(provider);
+CREATE INDEX IF NOT EXISTS device_setting_user_id_idx ON public.device_setting(user_id);
 
 -- ================================================
 -- TABLE: chatbot_flows
 -- ================================================
-CREATE TABLE chatbot_flows (
-  id varchar(255) PRIMARY KEY,
-  id_device varchar(255) NOT NULL DEFAULT '',
-  name varchar(255) NOT NULL,
-  niche varchar(255) NOT NULL DEFAULT '',
+CREATE TABLE public.chatbot_flows (
+  id character varying NOT NULL,
+  id_device character varying NOT NULL DEFAULT ''::character varying,
+  name character varying NOT NULL,
+  niche character varying NOT NULL DEFAULT ''::character varying,
   nodes jsonb,
   edges jsonb,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  nodes_data text,
+  CONSTRAINT chatbot_flows_pkey PRIMARY KEY (id)
 );
 
-CREATE INDEX IF NOT EXISTS chatbot_flows_id_device_idx ON chatbot_flows(id_device);
-
--- Optional: if device_setting.id_device is unique, enforce FK
--- ALTER TABLE chatbot_flows
---   ADD CONSTRAINT fk_chatbot_flows_device
---   FOREIGN KEY (id_device) REFERENCES device_setting(id_device) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS chatbot_flows_id_device_idx ON public.chatbot_flows(id_device);
 
 -- ================================================
 -- TABLE: ai_whatsapp
 -- ================================================
-CREATE TABLE ai_whatsapp (
-  id_prospect serial PRIMARY KEY,
-  flow_reference varchar(255),
-  execution_id varchar(255),
-  date_order timestamptz,
-  id_device varchar(255),
-  niche varchar(255),
-  prospect_name varchar(225),
-  prospect_num varchar(255) UNIQUE,
-  intro varchar(255),
-  stage varchar(255),
+CREATE TABLE public.ai_whatsapp (
+  id_prospect serial NOT NULL,
+  device_id character varying,
+  niche character varying,
+  prospect_name character varying,
+  prospect_num character varying UNIQUE,
+  intro character varying,
+  stage character varying,
   conv_last text,
   conv_current text,
-  execution_status varchar(20) CHECK (execution_status IN ('active','completed','failed')),
-  flow_id varchar(255),
-  current_node_id varchar(255),
-  last_node_id varchar(255),
-  waiting_for_reply boolean DEFAULT FALSE,
-  balas varchar(255),
   human integer DEFAULT 0,
-  keywordiklan varchar(255),
-  marketer varchar(255),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  update_today timestamptz
+  date_insert date DEFAULT CURRENT_DATE,
+  user_id uuid,
+  detail text,
+  sequence_stage character varying,
+  CONSTRAINT ai_whatsapp_pkey PRIMARY KEY (id_prospect),
+  CONSTRAINT ai_whatsapp_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user(id)
 );
 
-CREATE INDEX IF NOT EXISTS ai_whatsapp_prospect_num_idx ON ai_whatsapp(prospect_num);
-CREATE INDEX IF NOT EXISTS ai_whatsapp_id_device_idx ON ai_whatsapp(id_device);
-CREATE INDEX IF NOT EXISTS ai_whatsapp_stage_idx ON ai_whatsapp(stage);
-CREATE INDEX IF NOT EXISTS ai_whatsapp_human_idx ON ai_whatsapp(human);
-CREATE INDEX IF NOT EXISTS ai_whatsapp_niche_idx ON ai_whatsapp(niche);
-CREATE INDEX IF NOT EXISTS ai_whatsapp_created_at_idx ON ai_whatsapp(created_at);
-CREATE INDEX IF NOT EXISTS ai_whatsapp_execution_status_idx ON ai_whatsapp(execution_status);
-CREATE INDEX IF NOT EXISTS ai_whatsapp_execution_id_idx ON ai_whatsapp(execution_id);
-CREATE INDEX IF NOT EXISTS ai_whatsapp_flow_reference_idx ON ai_whatsapp(flow_reference);
-CREATE INDEX IF NOT EXISTS ai_whatsapp_waiting_for_reply_idx ON ai_whatsapp(waiting_for_reply);
-CREATE INDEX IF NOT EXISTS ai_whatsapp_flow_id_idx ON ai_whatsapp(flow_id);
-CREATE INDEX IF NOT EXISTS ai_whatsapp_current_node_id_idx ON ai_whatsapp(current_node_id);
+CREATE INDEX IF NOT EXISTS ai_whatsapp_prospect_num_idx ON public.ai_whatsapp(prospect_num);
+CREATE INDEX IF NOT EXISTS ai_whatsapp_device_id_idx ON public.ai_whatsapp(device_id);
+CREATE INDEX IF NOT EXISTS ai_whatsapp_stage_idx ON public.ai_whatsapp(stage);
+CREATE INDEX IF NOT EXISTS ai_whatsapp_human_idx ON public.ai_whatsapp(human);
 
 -- ================================================
--- TABLE: ai_whatsapp_session
+-- TABLE: wasapbot
 -- ================================================
-CREATE TABLE ai_whatsapp_session (
-  id_sessionX serial PRIMARY KEY,
-  id_prospect varchar(255) NOT NULL,
-  id_device varchar(255) NOT NULL,
-  "timestamp" varchar(255) NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS ai_whatsapp_session_prospect_idx ON ai_whatsapp_session(id_prospect);
-CREATE INDEX IF NOT EXISTS ai_whatsapp_session_device_idx ON ai_whatsapp_session(id_device);
-
--- ================================================
--- TABLE: wasapBot
--- ================================================
-CREATE TABLE wasapBot (
-  id_prospect serial PRIMARY KEY,
-  flow_reference varchar(255),
-  execution_id varchar(255),
-  execution_status varchar(20) CHECK (execution_status IN ('active','completed','failed')),
-  flow_id varchar(255),
-  current_node_id varchar(255),
-  last_node_id varchar(255),
-  waiting_for_reply boolean DEFAULT FALSE,
-  id_device varchar(100),
-  prospect_num varchar(100),
-  niche varchar(300),
-  peringkat_sekolah varchar(100),
-  alamat varchar(100),
-  nama varchar(100),
-  pakej varchar(100),
-  no_fon varchar(20),
-  cara_bayaran varchar(100),
-  tarikh_gaji varchar(20),
-  stage varchar(200),
-  temp_stage varchar(200),
-  conv_start varchar(200),
+CREATE TABLE public.wasapbot (
+  id_prospect serial NOT NULL,
+  execution_status character varying CHECK (execution_status::text = ANY (ARRAY['active'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])),
+  flow_id character varying,
+  current_node_id character varying,
+  last_node_id character varying,
+  waiting_for_reply boolean DEFAULT false,
+  id_device character varying,
+  prospect_num character varying,
+  niche character varying,
+  peringkat_sekolah character varying,
+  alamat character varying,
+  prospect_name character varying,
+  pakej character varying,
+  no_fon character varying,
+  cara_bayaran character varying,
+  tarikh_gaji character varying,
+  stage character varying,
+  conv_current character varying,
   conv_last text,
-  date_start varchar(50),
-  date_last varchar(50),
-  status varchar(200) DEFAULT 'Prospek'
+  created_at character varying,
+  updated_at character varying,
+  status character varying DEFAULT 'Prospek'::character varying,
+  CONSTRAINT wasapbot_pkey PRIMARY KEY (id_prospect)
 );
 
-CREATE INDEX IF NOT EXISTS wasapbot_prospect_num_idx ON wasapBot(prospect_num);
-CREATE INDEX IF NOT EXISTS wasapbot_id_device_idx ON wasapBot(id_device);
-CREATE INDEX IF NOT EXISTS wasapbot_stage_idx ON wasapBot(stage);
+CREATE INDEX IF NOT EXISTS wasapbot_prospect_num_idx ON public.wasapbot(prospect_num);
+CREATE INDEX IF NOT EXISTS wasapbot_id_device_idx ON public.wasapbot(id_device);
 
 -- ================================================
--- TABLE: wasapBot_session
+-- TABLE: stagesetvalue
 -- ================================================
-CREATE TABLE wasapBot_session (
-  id_sessionY serial PRIMARY KEY,
-  id_prospect varchar(255) NOT NULL,
-  id_device varchar(255) NOT NULL,
-  "timestamp" varchar(255) NOT NULL,
-  UNIQUE(id_prospect, id_device)
+CREATE TABLE public.stagesetvalue (
+  stagesetvalue_id serial NOT NULL,
+  id_device character varying,
+  stage character varying,
+  type_inputdata character varying,
+  columnsdata character varying,
+  inputhardcode character varying,
+  CONSTRAINT stagesetvalue_pkey PRIMARY KEY (stagesetvalue_id)
 );
 
-CREATE INDEX IF NOT EXISTS wasapbot_session_device_idx ON wasapBot_session(id_device);
-
--- ================================================
--- TABLE: stageSetValue
--- ================================================
-CREATE TABLE stageSetValue (
-  stageSetValue_id serial PRIMARY KEY,
-  id_device varchar(255),
-  stage varchar(255),
-  type_inputData varchar(255),
-  columnsData varchar(255),
-  inputHardCode varchar(255)
-);
-
-CREATE INDEX IF NOT EXISTS stagesetvalue_device_idx ON stageSetValue(id_device);
+CREATE INDEX IF NOT EXISTS stagesetvalue_device_idx ON public.stagesetvalue(id_device);
 
 -- ================================================
 -- TABLE: orders
 -- ================================================
-CREATE TABLE orders (
-  id serial PRIMARY KEY,
+CREATE TABLE public.orders (
+  id serial NOT NULL,
   user_id uuid,
-  collection_id varchar(255),
-  bill_id varchar(255),
-  product varchar(255) NOT NULL,
-  method varchar(20) DEFAULT 'billplz' CHECK (method IN ('billplz','cod')),
-  amount numeric(10,2) NOT NULL,
-  status varchar(20) DEFAULT 'Pending' CHECK (status IN ('Pending','Processing','Success','Failed')),
+  collection_id character varying,
+  bill_id character varying,
+  product character varying NOT NULL,
+  method character varying DEFAULT 'billplz'::character varying CHECK (method::text = ANY (ARRAY['billplz'::character varying, 'cod'::character varying]::text[])),
+  amount numeric NOT NULL,
+  status character varying DEFAULT 'Pending'::character varying CHECK (status::text = ANY (ARRAY['Pending'::character varying, 'Processing'::character varying, 'Success'::character varying, 'Failed'::character varying]::text[])),
   url text,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT fk_orders_user
-    FOREIGN KEY (user_id) REFERENCES "user"(id) ON DELETE SET NULL
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT orders_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES public.user(id)
 );
 
-CREATE INDEX IF NOT EXISTS orders_bill_id_idx ON orders(bill_id);
-CREATE INDEX IF NOT EXISTS orders_status_idx ON orders(status);
-CREATE INDEX IF NOT EXISTS orders_user_id_idx ON orders(user_id);
+CREATE INDEX IF NOT EXISTS orders_bill_id_idx ON public.orders(bill_id);
+CREATE INDEX IF NOT EXISTS orders_status_idx ON public.orders(status);
+CREATE INDEX IF NOT EXISTS orders_user_id_idx ON public.orders(user_id);
+
+-- ================================================
+-- TABLE: payments
+-- ================================================
+CREATE TABLE public.payments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  package_id uuid,
+  amount numeric NOT NULL,
+  currency character varying DEFAULT 'MYR'::character varying,
+  status character varying DEFAULT 'pending'::character varying,
+  chip_purchase_id character varying,
+  chip_transaction_id character varying,
+  chip_checkout_url text,
+  paid_at timestamp with time zone,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT payments_pkey PRIMARY KEY (id),
+  CONSTRAINT payments_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user(id),
+  CONSTRAINT payments_package_id_fkey FOREIGN KEY (package_id) REFERENCES public.packages(id)
+);
+
+-- ================================================
+-- TABLE: bank_images
+-- ================================================
+CREATE TABLE public.bank_images (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  name character varying NOT NULL,
+  image_url text NOT NULL,
+  blob_url text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT bank_images_pkey PRIMARY KEY (id),
+  CONSTRAINT bank_images_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user(id)
+);
+
+-- ================================================
+-- TABLE: prompts
+-- ================================================
+CREATE TABLE public.prompts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  device_id character varying NOT NULL,
+  niche character varying NOT NULL,
+  prompts_name character varying NOT NULL,
+  prompts_data text NOT NULL,
+  user_id uuid NOT NULL,
+  created_at date NOT NULL DEFAULT CURRENT_DATE,
+  updated_at date NOT NULL DEFAULT CURRENT_DATE,
+  CONSTRAINT prompts_pkey PRIMARY KEY (id),
+  CONSTRAINT prompts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user(id)
+);
+
+-- ================================================
+-- TABLE: sequences
+-- ================================================
+CREATE TABLE public.sequences (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  name character varying NOT NULL,
+  niche character varying NOT NULL,
+  trigger character varying NOT NULL,
+  description text NOT NULL,
+  schedule_time character varying NOT NULL DEFAULT '09:00'::character varying,
+  min_delay integer NOT NULL DEFAULT 5,
+  max_delay integer NOT NULL DEFAULT 15,
+  status character varying NOT NULL DEFAULT 'inactive'::character varying CHECK (status::text = ANY (ARRAY['active'::character varying, 'inactive'::character varying]::text[])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT sequences_pkey PRIMARY KEY (id),
+  CONSTRAINT sequences_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user(id)
+);
+
+-- ================================================
+-- TABLE: sequence_flows
+-- ================================================
+CREATE TABLE public.sequence_flows (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  sequence_id uuid NOT NULL,
+  flow_number integer NOT NULL,
+  step_trigger character varying NOT NULL,
+  next_trigger character varying,
+  delay_hours integer NOT NULL DEFAULT 24,
+  message text NOT NULL,
+  image_url text,
+  is_end boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT sequence_flows_pkey PRIMARY KEY (id),
+  CONSTRAINT sequence_flows_sequence_id_fkey FOREIGN KEY (sequence_id) REFERENCES public.sequences(id)
+);
+
+-- ================================================
+-- TABLE: sequence_enrollments
+-- ================================================
+CREATE TABLE public.sequence_enrollments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  sequence_id uuid NOT NULL,
+  prospect_num character varying NOT NULL,
+  current_flow_number integer NOT NULL DEFAULT 1,
+  status character varying NOT NULL DEFAULT 'active'::character varying CHECK (status::text = ANY (ARRAY['active'::character varying, 'paused'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])),
+  enrolled_at timestamp with time zone NOT NULL DEFAULT now(),
+  last_message_sent_at timestamp with time zone,
+  next_message_scheduled_at timestamp with time zone,
+  completed_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  schedule_message timestamp with time zone,
+  CONSTRAINT sequence_enrollments_pkey PRIMARY KEY (id),
+  CONSTRAINT sequence_enrollments_sequence_id_fkey FOREIGN KEY (sequence_id) REFERENCES public.sequences(id)
+);
+
+-- ================================================
+-- TABLE: sequence_scheduled_messages
+-- ================================================
+CREATE TABLE public.sequence_scheduled_messages (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  enrollment_id uuid NOT NULL,
+  sequence_id uuid NOT NULL,
+  flow_number integer NOT NULL,
+  prospect_num character varying NOT NULL,
+  device_id character varying NOT NULL,
+  whacenter_message_id character varying,
+  message text NOT NULL,
+  image_url text,
+  scheduled_time timestamp with time zone NOT NULL,
+  status character varying NOT NULL DEFAULT 'scheduled'::character varying CHECK (status::text = ANY (ARRAY['scheduled'::character varying::text, 'sent'::character varying::text, 'cancelled'::character varying::text, 'failed'::character varying::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT sequence_scheduled_messages_pkey PRIMARY KEY (id),
+  CONSTRAINT sequence_scheduled_messages_enrollment_id_fkey FOREIGN KEY (enrollment_id) REFERENCES public.sequence_enrollments(id),
+  CONSTRAINT sequence_scheduled_messages_sequence_id_fkey FOREIGN KEY (sequence_id) REFERENCES public.sequences(id)
+);
+
+-- ================================================
+-- TABLE: processing_tracker
+-- ================================================
+CREATE TABLE public.processing_tracker (
+  id bigserial NOT NULL,
+  id_prospect character varying,
+  flow_type character varying,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT processing_tracker_pkey PRIMARY KEY (id)
+);
 
 -- ================================================
 -- FUNCTIONS: update_updated_at_column
@@ -272,94 +355,66 @@ $$;
 
 -- Triggers
 CREATE TRIGGER update_user_updated_at
-BEFORE UPDATE ON "user"
+BEFORE UPDATE ON public.user
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_device_setting_updated_at
-BEFORE UPDATE ON device_setting
+BEFORE UPDATE ON public.device_setting
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_chatbot_flows_updated_at
-BEFORE UPDATE ON chatbot_flows
-FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_ai_whatsapp_updated_at
-BEFORE UPDATE ON ai_whatsapp
+BEFORE UPDATE ON public.chatbot_flows
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_orders_updated_at
-BEFORE UPDATE ON orders
+BEFORE UPDATE ON public.orders
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ================================================
 -- ROW LEVEL SECURITY (RLS)
 -- ================================================
-ALTER TABLE "user" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE device_setting ENABLE ROW LEVEL SECURITY;
-ALTER TABLE chatbot_flows ENABLE ROW LEVEL SECURITY;
-ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.device_setting ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.chatbot_flows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_whatsapp ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.wasapbot ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.stagesetvalue ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.packages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bank_images ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.prompts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sequences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sequence_flows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sequence_enrollments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sequence_scheduled_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.processing_tracker ENABLE ROW LEVEL SECURITY;
 
--- User policies (use SELECT wrappers for plan stability)
-CREATE POLICY "Users can view own profile" ON "user"
-  FOR SELECT USING ((SELECT auth.uid()) = id);
-
-CREATE POLICY "Users can update own profile" ON "user"
-  FOR UPDATE USING ((SELECT auth.uid()) = id);
-
-CREATE POLICY "Users can manage own sessions" ON user_sessions
-  FOR ALL USING ((SELECT auth.uid()) = user_id);
-
-CREATE POLICY "Users can manage own devices" ON device_setting
-  FOR ALL USING ((SELECT auth.uid()) = user_id);
-
-CREATE POLICY "Users can manage own flows" ON chatbot_flows
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1
-      FROM device_setting ds
-      WHERE ds.id_device = chatbot_flows.id_device
-        AND ds.user_id = (SELECT auth.uid())
-    )
-  );
-
-CREATE POLICY "Users can view own orders" ON orders
-  FOR ALL USING ((SELECT auth.uid()) = user_id);
-
--- Conversation tables: enable RLS and service-role bypass
-ALTER TABLE ai_whatsapp ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ai_whatsapp_session ENABLE ROW LEVEL SECURITY;
-ALTER TABLE wasapBot ENABLE ROW LEVEL SECURITY;
-ALTER TABLE wasapBot_session ENABLE ROW LEVEL SECURITY;
-ALTER TABLE stageSetValue ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Service role full access ai_whatsapp" ON ai_whatsapp
-  FOR ALL USING (auth.role() = 'service_role');
-
-CREATE POLICY "Service role full access ai_whatsapp_session" ON ai_whatsapp_session
-  FOR ALL USING (auth.role() = 'service_role');
-
-CREATE POLICY "Service role full access wasapBot" ON wasapBot
-  FOR ALL USING (auth.role() = 'service_role');
-
-CREATE POLICY "Service role full access wasapBot_session" ON wasapBot_session
-  FOR ALL USING (auth.role() = 'service_role');
-
-CREATE POLICY "Service role full access stageSetValue" ON stageSetValue
-  FOR ALL USING (auth.role() = 'service_role');
-
--- Helpful indexes for RLS performance (already added above):
--- user(id) PK, device_setting(user_id), chatbot_flows(id_device), orders(user_id)
+-- Service role full access policies
+CREATE POLICY "Service role full access" ON public.user FOR ALL USING (true);
+CREATE POLICY "Service role full access" ON public.device_setting FOR ALL USING (true);
+CREATE POLICY "Service role full access" ON public.chatbot_flows FOR ALL USING (true);
+CREATE POLICY "Service role full access" ON public.orders FOR ALL USING (true);
+CREATE POLICY "Service role full access" ON public.ai_whatsapp FOR ALL USING (true);
+CREATE POLICY "Service role full access" ON public.wasapbot FOR ALL USING (true);
+CREATE POLICY "Service role full access" ON public.stagesetvalue FOR ALL USING (true);
+CREATE POLICY "Service role full access" ON public.packages FOR ALL USING (true);
+CREATE POLICY "Service role full access" ON public.payments FOR ALL USING (true);
+CREATE POLICY "Service role full access" ON public.bank_images FOR ALL USING (true);
+CREATE POLICY "Service role full access" ON public.prompts FOR ALL USING (true);
+CREATE POLICY "Service role full access" ON public.sequences FOR ALL USING (true);
+CREATE POLICY "Service role full access" ON public.sequence_flows FOR ALL USING (true);
+CREATE POLICY "Service role full access" ON public.sequence_enrollments FOR ALL USING (true);
+CREATE POLICY "Service role full access" ON public.sequence_scheduled_messages FOR ALL USING (true);
+CREATE POLICY "Service role full access" ON public.processing_tracker FOR ALL USING (true);
 
 -- ================================================
--- SAMPLE DATA
+-- SAMPLE DATA: Default Packages
 -- ================================================
-INSERT INTO "user" (id, email, full_name, password, status)
-VALUES (
-  uuid_generate_v4(),
-  'test@chatbot-automation.com',
-  'Test User',
-  '$2a$10$8K1p/a0dL3gBt5KeGvXnVe6VfJZWG4qV0QnLfJZQXBqWGzqJvYXGy',
-  'Trial'
-)
-ON CONFLICT (email) DO NOTHING;
+INSERT INTO public.packages (name, description, price, currency, duration_days, max_devices, features, is_active)
+VALUES
+  ('Free', 'Free trial package', 0, 'MYR', 7, 1, '["1 Device", "Basic Support"]', true),
+  ('Basic', 'Basic package for small businesses', 49, 'MYR', 30, 3, '["3 Devices", "Email Support", "Basic Analytics"]', true),
+  ('Pro', 'Professional package', 99, 'MYR', 30, 10, '["10 Devices", "Priority Support", "Advanced Analytics", "Custom Flows"]', true),
+  ('Enterprise', 'Enterprise package for large businesses', 299, 'MYR', 30, 100, '["Unlimited Devices", "24/7 Support", "Full Analytics", "Custom Integration", "API Access"]', true)
+ON CONFLICT DO NOTHING;
