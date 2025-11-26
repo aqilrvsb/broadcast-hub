@@ -40,32 +40,78 @@ export const AddDeviceDialog = ({ open, onOpenChange, onSuccess }: AddDeviceDial
     setIsLoading(true);
 
     try {
-      console.log('Invoking add-device function...');
-      const { data, error } = await supabase.functions.invoke('add-device', {
-        body: {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "You must be logged in",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Check and delete existing device
+      const { data: existingDevices } = await supabase
+        .from('devices')
+        .select('device_id')
+        .eq('user_id', user.id);
+
+      if (existingDevices && existingDevices.length > 0 && existingDevices[0].device_id) {
+        const oldDeviceId = existingDevices[0].device_id;
+        console.log('Deleting old device:', oldDeviceId);
+        
+        await fetch(`/api/whacenter?endpoint=deleteDevice&device_id=${encodeURIComponent(oldDeviceId)}`);
+        
+        await supabase
+          .from('devices')
+          .delete()
+          .eq('user_id', user.id);
+      }
+
+      // Add device to WhatsApp Center
+      console.log('Adding device to WhatsApp Center...');
+      const addResponse = await fetch(
+        `/api/whacenter?endpoint=addDevice&name=${encodeURIComponent(user.id)}&number=${encodeURIComponent(phoneNumber.trim())}`
+      );
+      
+      const addData = await addResponse.json();
+      console.log('WhatsApp Center response:', addData);
+
+      if (!addData.success) {
+        throw new Error("Failed to add device to WhatsApp Center");
+      }
+
+      const deviceId = addData.data.device.device_id;
+
+      // Set webhook
+      await fetch(`/api/whacenter?endpoint=setWebhook&device_id=${encodeURIComponent(deviceId)}&webhook=`);
+
+      // Save to database
+      const { error: dbError } = await supabase
+        .from('devices')
+        .insert({
+          user_id: user.id,
           device_name: deviceName.trim(),
           phone_number: phoneNumber.trim(),
-        },
-      });
-
-      console.log('add-device response:', { data, error });
-      if (error) {
-        console.error('add-device error:', error);
-        throw error;
-      }
-
-      if (data.success) {
-        toast({
-          title: "Success",
-          description: "Device added successfully. Please scan the QR code to connect.",
+          device_id: deviceId,
+          status: 'NOT CONNECTED',
         });
-        setDeviceName("");
-        setPhoneNumber("");
-        onOpenChange(false);
-        onSuccess();
-      } else {
-        throw new Error(data.error || "Failed to add device");
+
+      if (dbError) {
+        console.error('Database error:', dbError);
+        throw new Error(dbError.message);
       }
+
+      toast({
+        title: "Success",
+        description: "Device added successfully. Please scan the QR code to connect.",
+      });
+      
+      setDeviceName("");
+      setPhoneNumber("");
+      onOpenChange(false);
+      onSuccess();
     } catch (error: any) {
       toast({
         title: "Error",

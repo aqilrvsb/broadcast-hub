@@ -1,0 +1,67 @@
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    const url = new URL(req.url)
+    const endpoint = url.searchParams.get('endpoint')
+    
+    if (!endpoint) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'endpoint parameter is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const apiKey = Deno.env.get('WHACENTER_API_KEY')
+    
+    // Build target URL with all query params plus api_key
+    const targetUrl = new URL(`https://api.whacenter.com/api/${endpoint}`)
+    
+    // Copy all query params except 'endpoint'
+    url.searchParams.forEach((value, key) => {
+      if (key !== 'endpoint') {
+        targetUrl.searchParams.set(key, value)
+      }
+    })
+    
+    // Add api_key
+    targetUrl.searchParams.set('api_key', apiKey!)
+
+    console.log(`Proxying to WhatsApp Center: ${endpoint}`, {
+      params: Object.fromEntries(targetUrl.searchParams.entries())
+    })
+
+    const response = await fetch(targetUrl.toString(), {
+      method: req.method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    const data = await response.json()
+    
+    console.log(`WhatsApp Center response:`, data)
+
+    return new Response(
+      JSON.stringify(data),
+      { 
+        status: response.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
+  } catch (error) {
+    console.error('Proxy error:', error)
+    const message = error instanceof Error ? error.message : 'An error occurred'
+    return new Response(
+      JSON.stringify({ success: false, error: message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+})

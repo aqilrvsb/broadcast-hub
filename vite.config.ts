@@ -8,6 +8,13 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    proxy: {
+      '/api/whacenter': {
+        target: 'https://hxplutdgulpnzkhdydqh.supabase.co/functions/v1/whacenter-proxy',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/whacenter/, ''),
+      }
+    }
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
