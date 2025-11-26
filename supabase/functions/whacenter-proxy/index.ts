@@ -42,6 +42,7 @@ Deno.serve(async (req) => {
       method: req.method,
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': apiKey || '',
       },
     })
 
