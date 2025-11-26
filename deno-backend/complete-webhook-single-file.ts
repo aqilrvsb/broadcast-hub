@@ -17,6 +17,197 @@ const corsHeaders = {
 };
 
 // ============================================================================
+// ANTI-BAN MESSAGE RANDOMIZER
+// ============================================================================
+
+// Homoglyph map - characters that look similar to avoid pattern detection
+const HOMOGLYPHS: Record<string, string[]> = {
+  'a': ['а', 'ɑ', 'α'], // Cyrillic а, Latin alpha, Greek alpha
+  'b': ['Ь', 'ƅ', 'ḃ'],
+  'c': ['с', 'ϲ', 'ć'],
+  'd': ['ԁ', 'ɗ', 'ḍ'],
+  'e': ['е', 'ė', 'ẹ'],
+  'f': ['ƒ', 'ḟ'],
+  'g': ['ɡ', 'ġ', 'ǵ'],
+  'h': ['һ', 'ḣ', 'ḥ'],
+  'i': ['і', 'ı', 'ḭ'],
+  'j': ['ј', 'ĵ', 'ǰ'],
+  'k': ['κ', 'ḳ', 'ķ'],
+  'l': ['ⅼ', 'ḷ', 'ļ'],
+  'm': ['м', 'ṁ', 'ḿ'],
+  'n': ['ո', 'ṅ', 'ń'],
+  'o': ['о', 'ο', 'ȯ'],
+  'p': ['р', 'ρ', 'ṗ'],
+  'q': ['ԛ', 'ɋ'],
+  'r': ['г', 'ṙ', 'ŕ'],
+  's': ['ѕ', 'ṡ', 'ś'],
+  't': ['τ', 'ṫ', 'ť'],
+  'u': ['υ', 'ս', 'ů'],
+  'v': ['ν', 'ѵ', 'ṿ'],
+  'w': ['ԝ', 'ẇ', 'ẃ'],
+  'x': ['х', 'ẋ', 'ẍ'],
+  'y': ['у', 'ү', 'ẏ'],
+  'z': ['ᴢ', 'ż', 'ź'],
+};
+
+// Zero-width characters for invisible variations
+const ZERO_WIDTH_CHARS = [
+  '\u200B', // Zero-width space
+  '\u200C', // Zero-width non-joiner
+  '\u200D', // Zero-width joiner
+  '\uFEFF', // Zero-width no-break space
+];
+
+/**
+ * Process spintax patterns like {option1|option2|option3}
+ * Example: "{Cik|Puan|Tuan} {name}" -> "Cik Ahmad"
+ */
+function processSpintax(text: string, variables: Record<string, string> = {}): string {
+  // First replace variables like {name}, {prospect_name}
+  let result = text;
+  for (const [key, value] of Object.entries(variables)) {
+    result = result.replace(new RegExp(`\\{${key}\\}`, 'gi'), value);
+  }
+
+  // Then process spintax {option1|option2|option3}
+  const spintaxRegex = /\{([^}]+)\}/g;
+  result = result.replace(spintaxRegex, (match, content) => {
+    // Check if it contains pipe (spintax) or is a variable that wasn't replaced
+    if (!content.includes('|')) {
+      return match; // Return as-is if no pipe (unresolved variable)
+    }
+    const options = content.split('|');
+    return options[Math.floor(Math.random() * options.length)];
+  });
+
+  return result;
+}
+
+/**
+ * Apply homoglyph substitution - replace percentage of characters with look-alikes
+ */
+function applyHomoglyphs(text: string, percentage: number = 0.05): string {
+  const chars = [...text];
+  if (chars.length === 0) return text;
+
+  // Get letter positions
+  const letterPositions: number[] = [];
+  chars.forEach((char, index) => {
+    if (/[a-zA-Z]/.test(char)) {
+      letterPositions.push(index);
+    }
+  });
+
+  if (letterPositions.length === 0) return text;
+
+  // Calculate how many to replace
+  let replaceCount = Math.floor(letterPositions.length * percentage);
+  if (replaceCount === 0) replaceCount = 1;
+
+  // Shuffle and pick positions
+  const shuffled = [...letterPositions].sort(() => Math.random() - 0.5);
+  const toReplace = shuffled.slice(0, replaceCount);
+
+  // Replace characters
+  for (const pos of toReplace) {
+    const char = chars[pos].toLowerCase();
+    const replacements = HOMOGLYPHS[char];
+    if (replacements && replacements.length > 0) {
+      const replacement = replacements[Math.floor(Math.random() * replacements.length)];
+      // Preserve case
+      chars[pos] = chars[pos] === chars[pos].toUpperCase()
+        ? replacement.toUpperCase()
+        : replacement;
+    }
+  }
+
+  return chars.join('');
+}
+
+/**
+ * Insert zero-width characters between words
+ */
+function insertZeroWidthChars(text: string, count: number = 2): string {
+  if (count <= 0 || text.length === 0) return text;
+
+  const words = text.split(' ');
+  if (words.length <= 1) return text;
+
+  const possiblePositions = words.length - 1;
+  const insertCount = Math.min(count, possiblePositions);
+
+  // Pick random positions to insert
+  const positions = new Set<number>();
+  while (positions.size < insertCount) {
+    positions.add(Math.floor(Math.random() * (words.length - 1)) + 1);
+  }
+
+  // Insert zero-width characters
+  for (const pos of positions) {
+    const zeroWidth = ZERO_WIDTH_CHARS[Math.floor(Math.random() * ZERO_WIDTH_CHARS.length)];
+    words[pos] = zeroWidth + words[pos];
+  }
+
+  return words.join(' ');
+}
+
+/**
+ * Randomize punctuation with subtle variations
+ */
+function randomizePunctuation(text: string): string {
+  const variations = [
+    { prob: 0.1, from: '!', to: '! ' },
+    { prob: 0.1, from: '?', to: '? ' },
+    { prob: 0.1, from: '.', to: '. ' },
+    { prob: 0.05, from: ',', to: ', ' },
+  ];
+
+  let result = text;
+  for (const v of variations) {
+    if (Math.random() < v.prob) {
+      result = result.split(v.from).join(v.to);
+    }
+  }
+
+  // Clean up multiple spaces
+  result = result.replace(/  +/g, ' ').trim();
+
+  return result;
+}
+
+/**
+ * Main function to randomize message with anti-ban techniques
+ * @param message - Original message (can contain spintax)
+ * @param prospectName - Recipient's name for personalization
+ */
+function randomizeMessage(message: string, prospectName: string = ''): string {
+  if (!message) return message;
+
+  // Variables for replacement
+  const variables: Record<string, string> = {
+    'name': prospectName || 'Anda',
+    'prospect_name': prospectName || 'Anda',
+    'nama': prospectName || 'Anda',
+  };
+
+  // 1. Process spintax and variables
+  let result = processSpintax(message, variables);
+
+  // 2. Apply homoglyphs (5% of characters)
+  result = applyHomoglyphs(result, 0.05);
+
+  // 3. Insert zero-width characters
+  result = insertZeroWidthChars(result, 2);
+
+  // 4. Randomize punctuation
+  result = randomizePunctuation(result);
+
+  console.log(`   🔀 Message randomized (anti-ban applied)`);
+
+  return result;
+}
+
+// ============================================================================
 // BROADCAST LOCK HANDLER - Schedule messages for all leads in category
 // ============================================================================
 
@@ -209,12 +400,15 @@ async function handleBroadcastLock(request: Request): Promise<Response> {
         console.log(`   📅 Flow ${flow.flow_number}: ${scheduleString} (Indonesia UTC+7, delay: ${cumulativeDelayHours}h)`);
 
         try {
+          // Apply anti-ban message randomization with prospect name
+          const randomizedMessage = randomizeMessage(flow.message, lead.prospect_name || '');
+
           // Send scheduled message to WhatsApp Center API
           const sendUrl = `${WHACENTER_API_URL}/api/send`;
           const formData = new URLSearchParams();
           formData.append('device_id', device.instance);
           formData.append('number', lead.prospect_num);
-          formData.append('message', flow.message);
+          formData.append('message', randomizedMessage);
           formData.append('schedule', scheduleString);
 
           // Add image if present
@@ -241,6 +435,7 @@ async function handleBroadcastLock(request: Request): Promise<Response> {
           console.log(`   ✅ Scheduled via API, ID: ${whacenterMessageId || 'unknown'}`);
 
           // Save to sequence_scheduled_messages table (Malaysia timezone for database)
+          // Store randomized message that was actually sent
           const { error: saveError } = await supabaseAdmin
             .from("sequence_scheduled_messages")
             .insert({
@@ -250,7 +445,7 @@ async function handleBroadcastLock(request: Request): Promise<Response> {
               prospect_num: lead.prospect_num,
               device_id: sequence.device_id,
               whacenter_message_id: String(whacenterMessageId),
-              message: flow.message,
+              message: randomizedMessage, // Store the randomized message that was sent
               image_url: flow.image_url,
               scheduled_time: scheduledTimeMalaysia.toISOString(),
               status: "scheduled",
@@ -269,11 +464,11 @@ async function handleBroadcastLock(request: Request): Promise<Response> {
       }
     }
 
-    // Step 7: Update sequence status to 'active' (locked)
+    // Step 7: Update sequence status to 'finish' (completed scheduling)
     const { error: updateError } = await supabaseAdmin
       .from("sequences")
       .update({
-        status: "active",
+        status: "finish",
         updated_at: new Date().toISOString(),
       })
       .eq("id", sequence_id);
@@ -289,7 +484,7 @@ async function handleBroadcastLock(request: Request): Promise<Response> {
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Broadcast locked and messages scheduled",
+        message: "Broadcast finished and messages scheduled",
         total_leads: leads.length,
         total_flows: flows.length,
         total_scheduled: totalScheduled,
@@ -300,6 +495,159 @@ async function handleBroadcastLock(request: Request): Promise<Response> {
 
   } catch (error) {
     console.error("❌ Broadcast lock error:", error);
+    return new Response(
+      JSON.stringify({ success: false, error: String(error) }),
+      { status: 500, headers: corsHeaders }
+    );
+  }
+}
+
+// ============================================================================
+// BROADCAST SUMMARY HANDLER - Get statistics for a sequence
+// ============================================================================
+
+async function handleBroadcastSummary(request: Request): Promise<Response> {
+  console.log(`\n📊 === BROADCAST SUMMARY REQUEST ===`);
+
+  try {
+    const url = new URL(request.url);
+    const sequence_id = url.searchParams.get("sequence_id");
+
+    if (!sequence_id) {
+      return new Response(
+        JSON.stringify({ success: false, error: "sequence_id is required" }),
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    console.log(`📋 Getting summary for sequence: ${sequence_id}`);
+
+    // Get sequence details
+    const { data: sequence, error: sequenceError } = await supabaseAdmin
+      .from("sequences")
+      .select("*, contact_categories(*)")
+      .eq("id", sequence_id)
+      .single();
+
+    if (sequenceError || !sequence) {
+      console.error("❌ Sequence not found:", sequenceError);
+      return new Response(
+        JSON.stringify({ success: false, error: "Sequence not found" }),
+        { status: 404, headers: corsHeaders }
+      );
+    }
+
+    // Get all scheduled messages for this sequence
+    const { data: scheduledMessages, error: messagesError } = await supabaseAdmin
+      .from("sequence_scheduled_messages")
+      .select("*")
+      .eq("sequence_id", sequence_id);
+
+    if (messagesError) {
+      console.error("❌ Error fetching messages:", messagesError);
+      return new Response(
+        JSON.stringify({ success: false, error: "Error fetching messages" }),
+        { status: 500, headers: corsHeaders }
+      );
+    }
+
+    // Get all flows for this sequence
+    const { data: flows, error: flowsError } = await supabaseAdmin
+      .from("sequence_flows")
+      .select("*")
+      .eq("sequence_id", sequence_id)
+      .order("flow_number", { ascending: true });
+
+    if (flowsError) {
+      console.error("❌ Error fetching flows:", flowsError);
+      return new Response(
+        JSON.stringify({ success: false, error: "Error fetching flows" }),
+        { status: 500, headers: corsHeaders }
+      );
+    }
+
+    // Get unique leads count
+    const { data: enrollments, error: enrollmentsError } = await supabaseAdmin
+      .from("sequence_enrollments")
+      .select("prospect_num")
+      .eq("sequence_id", sequence_id);
+
+    if (enrollmentsError) {
+      console.error("❌ Error fetching enrollments:", enrollmentsError);
+    }
+
+    const messages = scheduledMessages || [];
+    const totalLeads = enrollments ? new Set(enrollments.map(e => e.prospect_num)).size : 0;
+
+    // Calculate overall statistics
+    const totalMessages = messages.length;
+    const sentMessages = messages.filter(m => m.status === "sent").length;
+    const failedMessages = messages.filter(m => m.status === "failed").length;
+    const scheduledRemaining = messages.filter(m => m.status === "scheduled").length;
+    const cancelledMessages = messages.filter(m => m.status === "cancelled").length;
+
+    const sentPercentage = totalMessages > 0 ? ((sentMessages / totalMessages) * 100).toFixed(1) : "0.0";
+    const failedPercentage = totalMessages > 0 ? ((failedMessages / totalMessages) * 100).toFixed(1) : "0.0";
+    const remainingPercentage = totalMessages > 0 ? ((scheduledRemaining / totalMessages) * 100).toFixed(1) : "0.0";
+    const successRate = totalMessages > 0 ? ((sentMessages / totalMessages) * 100).toFixed(1) : "0.0";
+
+    // Calculate step-wise progress
+    const stepProgress = (flows || []).map(flow => {
+      const flowMessages = messages.filter(m => m.flow_number === flow.flow_number);
+      const shouldSend = flowMessages.length;
+      const sent = flowMessages.filter(m => m.status === "sent").length;
+      const failed = flowMessages.filter(m => m.status === "failed").length;
+      const remaining = flowMessages.filter(m => m.status === "scheduled").length;
+
+      return {
+        step: flow.flow_number,
+        step_name: flow.message.substring(0, 100) + (flow.message.length > 100 ? "..." : ""),
+        image_url: flow.image_url,
+        should_send: shouldSend,
+        sent: sent,
+        sent_percentage: shouldSend > 0 ? ((sent / shouldSend) * 100).toFixed(1) : "0.0",
+        failed: failed,
+        failed_percentage: shouldSend > 0 ? ((failed / shouldSend) * 100).toFixed(1) : "0.0",
+        remaining: remaining,
+        remaining_percentage: shouldSend > 0 ? ((remaining / shouldSend) * 100).toFixed(1) : "0.0",
+        progress: shouldSend > 0 ? ((sent / shouldSend) * 100).toFixed(1) : "0.0",
+      };
+    });
+
+    const summary = {
+      success: true,
+      sequence: {
+        id: sequence.id,
+        name: sequence.name,
+        status: sequence.status,
+        schedule_date: sequence.schedule_date,
+        schedule_time: sequence.schedule_time,
+        category_name: sequence.contact_categories?.name || "Unknown",
+      },
+      overall: {
+        should_send: totalMessages,
+        sent: sentMessages,
+        sent_percentage: sentPercentage,
+        failed: failedMessages,
+        failed_percentage: failedPercentage,
+        remaining: scheduledRemaining,
+        remaining_percentage: remainingPercentage,
+        cancelled: cancelledMessages,
+        total_leads: totalLeads,
+        success_rate: successRate,
+      },
+      step_progress: stepProgress,
+    };
+
+    console.log(`✅ Summary generated successfully`);
+
+    return new Response(
+      JSON.stringify(summary),
+      { status: 200, headers: corsHeaders }
+    );
+
+  } catch (error) {
+    console.error("❌ Summary error:", error);
     return new Response(
       JSON.stringify({ success: false, error: String(error) }),
       { status: 500, headers: corsHeaders }
@@ -335,6 +683,11 @@ serve(async (request: Request) => {
     // Broadcast lock endpoint
     if (path === "/api/broadcast/lock" && method === "POST") {
       return await handleBroadcastLock(request);
+    }
+
+    // Broadcast summary endpoint
+    if (path === "/api/broadcast/summary" && method === "GET") {
+      return await handleBroadcastSummary(request);
     }
 
     // 404 for unknown routes

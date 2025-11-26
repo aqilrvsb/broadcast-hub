@@ -17,12 +17,49 @@ type Sequence = {
   schedule_time: string
   min_delay: number
   max_delay: number
-  status: 'active' | 'inactive'
+  status: 'active' | 'inactive' | 'finish'
   created_at: string
   updated_at: string
   contact_count?: number
   device?: Device
   category?: ContactCategory
+}
+
+type BroadcastSummary = {
+  success: boolean
+  sequence: {
+    id: string
+    name: string
+    status: string
+    schedule_date: string
+    schedule_time: string
+    category_name: string
+  }
+  overall: {
+    should_send: number
+    sent: number
+    sent_percentage: string
+    failed: number
+    failed_percentage: string
+    remaining: number
+    remaining_percentage: string
+    cancelled: number
+    total_leads: number
+    success_rate: string
+  }
+  step_progress: {
+    step: number
+    step_name: string
+    image_url: string | null
+    should_send: number
+    sent: number
+    sent_percentage: string
+    failed: number
+    failed_percentage: string
+    remaining: number
+    remaining_percentage: string
+    progress: string
+  }[]
 }
 
 type SequenceFlow = {
@@ -55,6 +92,9 @@ export default function Sequences() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showFlowEditModal, setShowFlowEditModal] = useState(false)
+  const [showSummaryModal, setShowSummaryModal] = useState(false)
+  const [summaryData, setSummaryData] = useState<BroadcastSummary | null>(null)
+  const [summaryLoading, setSummaryLoading] = useState(false)
   const [currentSequence, setCurrentSequence] = useState<Sequence | null>(null)
   const [currentFlowNumber, setCurrentFlowNumber] = useState<number>(1)
   const [sequenceFlows, setSequenceFlows] = useState<SequenceFlow[]>([])
@@ -77,7 +117,7 @@ export default function Sequences() {
   }
   const [filterStartDate, setFilterStartDate] = useState(getFirstDayOfMonth())
   const [filterEndDate, setFilterEndDate] = useState(getLastDayOfMonth())
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'finish'>('all')
 
   // Form state for creating/editing sequences
   const [formData, setFormData] = useState({
@@ -448,6 +488,34 @@ export default function Sequences() {
         title: 'Failed to Delete',
         text: error.message || 'Failed to delete sequence',
       })
+    }
+  }
+
+  const handleShowSummary = async (sequence: Sequence) => {
+    try {
+      setSummaryLoading(true)
+      setShowSummaryModal(true)
+      setCurrentSequence(sequence)
+
+      const DENO_API_URL = import.meta.env.VITE_DENO_API_URL || 'https://broadcast-hub.deno.dev'
+      const response = await fetch(`${DENO_API_URL}/api/broadcast/summary?sequence_id=${sequence.id}`)
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to fetch summary')
+      }
+
+      setSummaryData(data)
+    } catch (error: unknown) {
+      console.error('Error fetching summary:', error)
+      setShowSummaryModal(false)
+      await Swal.fire({
+        icon: 'error',
+        title: 'Failed to Load Summary',
+        text: error instanceof Error ? error.message : 'Failed to load broadcast summary',
+      })
+    } finally {
+      setSummaryLoading(false)
     }
   }
 
@@ -863,12 +931,13 @@ export default function Sequences() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
               <select
                 value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
+                onChange={(e) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive' | 'finish')}
                 className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
                 <option value="all">All Status</option>
                 <option value="active">Lock</option>
                 <option value="inactive">Pending</option>
+                <option value="finish">Finish</option>
               </select>
             </div>
             <div>
@@ -910,12 +979,14 @@ export default function Sequences() {
                     <h3 className="text-xl font-bold text-gray-900 mb-1">{sequence.name}</h3>
                     <span
                       className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                        sequence.status === 'active'
+                        sequence.status === 'finish'
+                          ? 'bg-blue-100 text-blue-700'
+                          : sequence.status === 'active'
                           ? 'bg-green-100 text-green-700'
                           : 'bg-yellow-100 text-yellow-700'
                       }`}
                     >
-                      {sequence.status === 'active' ? 'Lock' : 'Pending'}
+                      {sequence.status === 'finish' ? 'Finish' : sequence.status === 'active' ? 'Lock' : 'Pending'}
                     </span>
                   </div>
                 </div>
@@ -940,8 +1011,17 @@ export default function Sequences() {
                 </div>
 
                 <div className="space-y-2">
+                  {/* Show Summary button for finished sequences */}
+                  {sequence.status === 'finish' && (
+                    <button
+                      onClick={() => handleShowSummary(sequence)}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors font-medium text-sm"
+                    >
+                      📊 Summary
+                    </button>
+                  )}
                   {/* Only show Update and Delete buttons when status is Pending (inactive) */}
-                  {sequence.status !== 'active' && (
+                  {sequence.status === 'inactive' && (
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleEditSequence(sequence)}
@@ -957,22 +1037,48 @@ export default function Sequences() {
                       </button>
                     </div>
                   )}
-                  <div className="flex items-center justify-between pt-2">
-                    <span className="text-sm text-gray-600">Status:</span>
-                    <label className={`relative inline-flex items-center ${sequence.status === 'active' ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
-                      <input
-                        type="checkbox"
-                        checked={sequence.status === 'active'}
-                        onChange={() => handleToggleStatus(sequence)}
-                        disabled={sequence.status === 'active'}
-                        className="sr-only peer"
-                      />
-                      <div className={`w-11 h-6 ${sequence.status === 'active' ? 'bg-green-600' : 'bg-gray-200'} peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600`}></div>
-                      <span className={`ml-2 text-sm font-medium ${sequence.status === 'active' ? 'text-green-700' : 'text-gray-700'}`}>
-                        {sequence.status === 'active' ? 'Lock' : 'Pending'}
-                      </span>
-                    </label>
-                  </div>
+                  {/* Only show status toggle for pending sequences */}
+                  {sequence.status === 'inactive' && (
+                    <div className="flex items-center justify-between pt-2">
+                      <span className="text-sm text-gray-600">Status:</span>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={false}
+                          onChange={() => handleToggleStatus(sequence)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                        <span className="ml-2 text-sm font-medium text-gray-700">
+                          Pending
+                        </span>
+                      </label>
+                    </div>
+                  )}
+                  {/* Show locked status indicator for active sequences */}
+                  {sequence.status === 'active' && (
+                    <div className="flex items-center justify-between pt-2">
+                      <span className="text-sm text-gray-600">Status:</span>
+                      <div className="flex items-center">
+                        <div className="w-11 h-6 bg-green-600 rounded-full relative">
+                          <div className="absolute top-[2px] right-[2px] bg-white border-gray-300 border rounded-full h-5 w-5"></div>
+                        </div>
+                        <span className="ml-2 text-sm font-medium text-green-700">Lock</span>
+                      </div>
+                    </div>
+                  )}
+                  {/* Show finished status indicator for finish sequences */}
+                  {sequence.status === 'finish' && (
+                    <div className="flex items-center justify-between pt-2">
+                      <span className="text-sm text-gray-600">Status:</span>
+                      <div className="flex items-center">
+                        <div className="w-11 h-6 bg-blue-600 rounded-full relative">
+                          <div className="absolute top-[2px] right-[2px] bg-white border-gray-300 border rounded-full h-5 w-5"></div>
+                        </div>
+                        <span className="ml-2 text-sm font-medium text-blue-700">Finish</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -1357,6 +1463,182 @@ export default function Sequences() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Summary Modal */}
+        {showSummaryModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[60] overflow-y-auto">
+            <div className="bg-white rounded-xl w-full max-w-5xl my-8 shadow-xl max-h-[90vh] overflow-y-auto">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-t-xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-2xl font-bold">{currentSequence?.name || 'Broadcast Summary'}</h3>
+                    <p className="text-blue-100 mt-1">
+                      {summaryData?.sequence.category_name || 'Category'} •
+                      {summaryData?.sequence.schedule_date ? ` ${new Date(summaryData.sequence.schedule_date).toLocaleDateString('en-GB')}` : ''}
+                      {summaryData?.sequence.schedule_time ? ` ${summaryData.sequence.schedule_time}` : ''}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowSummaryModal(false)
+                      setSummaryData(null)
+                    }}
+                    className="text-white/80 hover:text-white text-3xl"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+
+              {summaryLoading ? (
+                <div className="p-12 text-center">
+                  <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent"></div>
+                  <p className="mt-4 text-gray-600">Loading summary...</p>
+                </div>
+              ) : summaryData ? (
+                <div className="p-6">
+                  {/* Overall Statistics */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+                      <p className="text-xs text-red-600 font-medium uppercase">Should Send</p>
+                      <p className="text-3xl font-bold text-red-700">{summaryData.overall.should_send}</p>
+                      <p className="text-xs text-red-500">Total Messages</p>
+                    </div>
+                    <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+                      <p className="text-xs text-green-600 font-medium uppercase">Sent</p>
+                      <p className="text-3xl font-bold text-green-700">{summaryData.overall.sent}</p>
+                      <p className="text-xs text-green-500">{summaryData.overall.sent_percentage}%</p>
+                    </div>
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+                      <p className="text-xs text-red-600 font-medium uppercase">Failed</p>
+                      <p className="text-3xl font-bold text-red-700">{summaryData.overall.failed}</p>
+                      <p className="text-xs text-red-500">{summaryData.overall.failed_percentage}%</p>
+                    </div>
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center">
+                      <p className="text-xs text-yellow-600 font-medium uppercase">Remaining</p>
+                      <p className="text-3xl font-bold text-yellow-700">{summaryData.overall.remaining}</p>
+                      <p className="text-xs text-yellow-500">{summaryData.overall.remaining_percentage}%</p>
+                    </div>
+                    <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 text-center">
+                      <p className="text-xs text-purple-600 font-medium uppercase">Total Leads</p>
+                      <p className="text-3xl font-bold text-purple-700">{summaryData.overall.total_leads}</p>
+                      <p className="text-xs text-purple-500">Unique Recipients</p>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
+                      <p className="text-xs text-blue-600 font-medium uppercase">Success Rate</p>
+                      <p className="text-3xl font-bold text-blue-700">{summaryData.overall.success_rate}%</p>
+                      <p className="text-xs text-blue-500">Sent vs Total</p>
+                    </div>
+                  </div>
+
+                  {/* Overall Progress Bar */}
+                  <div className="mb-8">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Overall Progress</h4>
+                    <div className="w-full h-6 bg-gray-200 rounded-full overflow-hidden flex">
+                      <div
+                        className="bg-green-500 h-full flex items-center justify-center text-xs text-white font-medium"
+                        style={{ width: `${summaryData.overall.sent_percentage}%` }}
+                      >
+                        {parseFloat(summaryData.overall.sent_percentage) > 5 ? `Sent: ${summaryData.overall.sent_percentage}%` : ''}
+                      </div>
+                      <div
+                        className="bg-red-500 h-full flex items-center justify-center text-xs text-white font-medium"
+                        style={{ width: `${summaryData.overall.failed_percentage}%` }}
+                      >
+                        {parseFloat(summaryData.overall.failed_percentage) > 5 ? `Failed: ${summaryData.overall.failed_percentage}%` : ''}
+                      </div>
+                      <div
+                        className="bg-yellow-400 h-full flex items-center justify-center text-xs text-gray-700 font-medium"
+                        style={{ width: `${summaryData.overall.remaining_percentage}%` }}
+                      >
+                        {parseFloat(summaryData.overall.remaining_percentage) > 5 ? `Remaining: ${summaryData.overall.remaining_percentage}%` : ''}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step-wise Progress */}
+                  <div>
+                    <h4 className="text-lg font-bold text-gray-900 mb-4">Step-wise Progress</h4>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Step</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Step Name</th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Image</th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Should Send</th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Sent</th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Sent %</th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Failed</th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Failed %</th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Remaining</th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Remaining %</th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase w-32">Progress</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {summaryData.step_progress.map((step) => (
+                            <tr key={step.step} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 text-center">
+                                <span className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-700 rounded-full font-bold text-sm">
+                                  {step.step}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-700 max-w-xs">
+                                <p className="line-clamp-2" title={step.step_name}>{step.step_name}</p>
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                {step.image_url ? (
+                                  <img src={step.image_url} alt="" className="w-12 h-12 object-cover rounded mx-auto" />
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-center font-medium text-gray-900">{step.should_send}</td>
+                              <td className="px-4 py-3 text-center font-medium text-green-600">{step.sent}</td>
+                              <td className="px-4 py-3 text-center text-green-600">{step.sent_percentage}%</td>
+                              <td className="px-4 py-3 text-center font-medium text-red-600">{step.failed}</td>
+                              <td className="px-4 py-3 text-center text-red-600">{step.failed_percentage}%</td>
+                              <td className="px-4 py-3 text-center font-medium text-yellow-600">{step.remaining}</td>
+                              <td className="px-4 py-3 text-center text-yellow-600">{step.remaining_percentage}%</td>
+                              <td className="px-4 py-3">
+                                <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden">
+                                  <div
+                                    className="bg-green-500 h-full"
+                                    style={{ width: `${step.progress}%` }}
+                                  ></div>
+                                </div>
+                                <p className="text-xs text-center text-gray-500 mt-1">{step.progress}%</p>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-12 text-center">
+                  <p className="text-gray-600">No summary data available</p>
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="border-t p-4 flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowSummaryModal(false)
+                    setSummaryData(null)
+                  }}
+                  className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         )}
