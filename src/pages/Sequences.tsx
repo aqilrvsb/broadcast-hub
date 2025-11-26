@@ -455,6 +455,93 @@ export default function Sequences() {
     try {
       const newStatus = sequence.status === 'active' ? 'inactive' : 'active'
 
+      // If changing from Pending to Lock, validate and call Deno Deploy to schedule messages
+      if (newStatus === 'active') {
+        // Validate required fields
+        if (!sequence.schedule_date || !sequence.schedule_time) {
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Missing Schedule',
+            text: 'Please set Schedule Date and Time before locking the broadcast.',
+          })
+          return
+        }
+
+        if (!sequence.device_id || !sequence.category_id) {
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Missing Configuration',
+            text: 'Please select Device and Category before locking the broadcast.',
+          })
+          return
+        }
+
+        // Confirm action
+        const result = await Swal.fire({
+          icon: 'question',
+          title: 'Lock Broadcast?',
+          html: `
+            <p>This will schedule messages for all leads in this category.</p>
+            <p class="mt-2"><strong>Schedule:</strong> ${new Date(sequence.schedule_date).toLocaleDateString('en-GB')} ${sequence.schedule_time}</p>
+            <p><strong>Category:</strong> ${sequence.category?.name || 'Unknown'}</p>
+            <p><strong>Total Leads:</strong> ${sequence.category?.leads_count || 0}</p>
+          `,
+          showCancelButton: true,
+          confirmButtonText: 'Yes, Lock it',
+          cancelButtonText: 'Cancel',
+          confirmButtonColor: '#22c55e',
+        })
+
+        if (!result.isConfirmed) return
+
+        // Show loading
+        Swal.fire({
+          title: 'Scheduling Messages...',
+          html: 'Please wait while we schedule messages for all leads.',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading()
+          },
+        })
+
+        // Call Deno Deploy endpoint to schedule messages
+        const DENO_API_URL = import.meta.env.VITE_DENO_API_URL || 'https://boradcast-hub.rolevision19.deno.dev'
+
+        const response = await fetch(`${DENO_API_URL}/api/broadcast/lock`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sequence_id: sequence.id,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'Failed to schedule messages')
+        }
+
+        await Swal.fire({
+          icon: 'success',
+          title: 'Broadcast Locked!',
+          html: `
+            <p>Messages have been scheduled successfully.</p>
+            <p class="mt-2"><strong>Total Leads:</strong> ${data.total_leads}</p>
+            <p><strong>Messages Scheduled:</strong> ${data.total_scheduled}</p>
+            ${data.total_failed > 0 ? `<p class="text-red-600"><strong>Failed:</strong> ${data.total_failed}</p>` : ''}
+          `,
+          timer: 5000,
+          showConfirmButton: true,
+        })
+
+        loadSequences()
+        return
+      }
+
+      // If changing from Lock to Pending (unlock), this shouldn't happen because toggle is disabled when active
+      // But keeping the logic here for completeness
       const { error } = await supabase
         .from('sequences')
         .update({
