@@ -689,7 +689,7 @@ export default function Sequences() {
                   <div>
                     <p className="text-gray-500">Schedule: <span className="text-gray-900 font-medium">
                       {sequence.schedule_date
-                        ? `${new Date(sequence.schedule_date).toLocaleDateString()} ${sequence.schedule_time || '09:00'}`
+                        ? `${new Date(sequence.schedule_date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')} ${sequence.schedule_time ? new Date(`2000-01-01T${sequence.schedule_time}`).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '09:00 AM'}`
                         : 'Not scheduled'}
                     </span></p>
                   </div>
