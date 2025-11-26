@@ -66,20 +66,51 @@ const Devices = () => {
     if (!device.device_id) return;
 
     try {
-      const { data, error } = await supabase.functions.invoke('check-device-status', {
-        body: { device_id: device.device_id },
-      });
+      // Check device status
+      const statusResponse = await fetch(
+        `/api/whacenter?endpoint=statusDevice&device_id=${encodeURIComponent(device.device_id)}`
+      );
+      const statusData = await statusResponse.json();
 
-      if (error) throw error;
+      console.log('Device status:', statusData);
 
-      if (data.qrCode) {
-        setQrCode(data.qrCode);
-        setSelectedDevice(device);
-        setIsQRDialogOpen(true);
-      } else {
+      if (statusData.status && statusData.data.status === 'CONNECTED') {
+        // Update status in database
+        await supabase
+          .from('devices')
+          .update({ status: 'CONNECTED' })
+          .eq('device_id', device.device_id);
+
         toast({
           title: "Device Connected",
-          description: "This device is already connected.",
+          description: "This device is already connected to WhatsApp",
+        });
+        fetchDevices();
+        return;
+      }
+
+      // Get QR code if not connected
+      const qrResponse = await fetch(
+        `/api/whacenter?endpoint=qr&device_id=${encodeURIComponent(device.device_id)}`
+      );
+      const qrData = await qrResponse.json();
+
+      if (qrData.success && qrData.data.image) {
+        const qrImage = `data:image/png;base64,${qrData.data.image}`;
+        setQrCode(qrImage);
+        setSelectedDevice(device);
+        setIsQRDialogOpen(true);
+
+        // Update status
+        await supabase
+          .from('devices')
+          .update({ status: 'NOT CONNECTED' })
+          .eq('device_id', device.device_id);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to retrieve QR code",
+          variant: "destructive",
         });
       }
     } catch (error: any) {
@@ -95,9 +126,16 @@ const Devices = () => {
     if (!device.device_id) return;
 
     try {
-      const { error } = await supabase.functions.invoke('delete-device', {
-        body: { device_id: device.device_id },
-      });
+      // Delete from WhatsApp Center
+      await fetch(
+        `/api/whacenter?endpoint=deleteDevice&device_id=${encodeURIComponent(device.device_id)}`
+      );
+
+      // Delete from database
+      const { error } = await supabase
+        .from('devices')
+        .delete()
+        .eq('id', device.id);
 
       if (error) throw error;
 
@@ -105,6 +143,8 @@ const Devices = () => {
         title: "Success",
         description: "Device deleted successfully",
       });
+
+      fetchDevices();
     } catch (error: any) {
       toast({
         title: "Error",

@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/whacenter/:path*",
+      "destination": "https://hxplutdgulpnzkhdydqh.supabase.co/functions/v1/whacenter-proxy/:path*"
+    }
+  ]
+}
