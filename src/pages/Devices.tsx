@@ -37,6 +37,11 @@ const Devices = () => {
 
       if (error) throw error;
       setDevices(data || []);
+      
+      // Auto-check status for all devices on page load
+      if (data && data.length > 0) {
+        checkAllDeviceStatuses(data);
+      }
     } catch (error: any) {
       toast({
         title: "Error",
@@ -45,6 +50,48 @@ const Devices = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const checkAllDeviceStatuses = async (deviceList: Device[]) => {
+    for (const device of deviceList) {
+      if (!device.device_id) {
+        // No instance - NOT_SETUP
+        await supabase
+          .from('devices')
+          .update({ status: 'NOT_SETUP' })
+          .eq('id', device.id);
+        continue;
+      }
+
+      try {
+        const statusResponse = await fetch(
+          `/api/whacenter?endpoint=statusDevice&device_id=${encodeURIComponent(device.device_id)}`
+        );
+        const statusData = await statusResponse.json();
+
+        if (statusData.status && statusData.data?.status === 'CONNECTED') {
+          await supabase
+            .from('devices')
+            .update({ status: 'CONNECTED' })
+            .eq('device_id', device.device_id);
+        } else if (statusData.status && statusData.data?.status === 'NOT CONNECTED') {
+          await supabase
+            .from('devices')
+            .update({ status: 'NOT_CONNECTED' })
+            .eq('device_id', device.device_id);
+        } else {
+          await supabase
+            .from('devices')
+            .update({ status: 'UNKNOWN' })
+            .eq('device_id', device.device_id);
+        }
+      } catch (error) {
+        await supabase
+          .from('devices')
+          .update({ status: 'FAILED' })
+          .eq('device_id', device.device_id);
+      }
     }
   };
 
