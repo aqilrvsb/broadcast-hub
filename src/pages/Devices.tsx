@@ -24,6 +24,8 @@ const Devices = () => {
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isQRDialogOpen, setIsQRDialogOpen] = useState(false);
+  const [isValidQR, setIsValidQR] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { toast } = useToast();
 
   const fetchDevices = async () => {
@@ -62,8 +64,21 @@ const Devices = () => {
     };
   }, []);
 
+  const validateQRCode = (base64Image: string): boolean => {
+    // Valid QR codes: Start with PNG header AND length > 2000 chars
+    // Invalid/placeholder QR: shorter length (~1500-1800 chars)
+    return base64Image.startsWith('iVBORw0KG') && base64Image.length > 2000;
+  };
+
   const handleShowQR = async (device: Device) => {
-    if (!device.device_id) return;
+    if (!device.device_id) {
+      toast({
+        title: "Error",
+        description: "Device ID not found",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       // Check device status
@@ -74,7 +89,7 @@ const Devices = () => {
 
       console.log('Device status:', statusData);
 
-      if (statusData.status && statusData.data.status === 'CONNECTED') {
+      if (statusData.status && statusData.data?.status === 'CONNECTED') {
         // Update status in database
         await supabase
           .from('devices')
@@ -95,18 +110,30 @@ const Devices = () => {
       );
       const qrData = await qrResponse.json();
 
-      if (qrData.success && qrData.data.image) {
+      if (qrData.success && qrData.data?.image) {
+        const isValid = validateQRCode(qrData.data.image);
         const qrImage = `data:image/png;base64,${qrData.data.image}`;
+        
         setQrCode(qrImage);
+        setIsValidQR(isValid);
         setSelectedDevice(device);
         setIsQRDialogOpen(true);
 
-        // Update status
+        // Update status in database
         await supabase
           .from('devices')
-          .update({ status: 'NOT CONNECTED' })
+          .update({ status: 'NOT_CONNECTED' })
           .eq('device_id', device.device_id);
+
+        if (!isValid) {
+          console.warn('Invalid QR code detected - may be placeholder or expired');
+        }
       } else {
+        await supabase
+          .from('devices')
+          .update({ status: 'FAILED' })
+          .eq('device_id', device.device_id);
+
         toast({
           title: "Error",
           description: "Failed to retrieve QR code",
@@ -114,11 +141,103 @@ const Devices = () => {
         });
       }
     } catch (error: any) {
+      await supabase
+        .from('devices')
+        .update({ status: 'UNKNOWN' })
+        .eq('device_id', device.device_id);
+
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to check device status",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleRefreshQR = async () => {
+    if (!selectedDevice) return;
+
+    setIsRefreshing(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
+      // 1. Delete old device from WhatsApp Center
+      if (selectedDevice.device_id) {
+        console.log('Deleting old device:', selectedDevice.device_id);
+        await fetch(
+          `/api/whacenter?endpoint=deleteDevice&device_id=${encodeURIComponent(selectedDevice.device_id)}`
+        );
+      }
+
+      // 2. Create new device
+      console.log('Creating new device...');
+      const addResponse = await fetch(
+        `/api/whacenter?endpoint=addDevice&name=${encodeURIComponent(user.id)}&number=${encodeURIComponent(selectedDevice.phone_number)}`
+      );
+      const addData = await addResponse.json();
+
+      if (!addData.success || !addData.data?.device?.device_id) {
+        throw new Error("Failed to create new device");
+      }
+
+      const newDeviceId = addData.data.device.device_id;
+
+      // 3. Set webhook for new device
+      await fetch(
+        `/api/whacenter?endpoint=setWebhook&device_id=${encodeURIComponent(newDeviceId)}&webhook=`
+      );
+
+      // 4. Update database with new device ID
+      await supabase
+        .from('devices')
+        .update({ 
+          device_id: newDeviceId,
+          status: 'NOT_CONNECTED',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedDevice.id);
+
+      // 5. Get fresh QR code
+      const qrResponse = await fetch(
+        `/api/whacenter?endpoint=qr&device_id=${encodeURIComponent(newDeviceId)}`
+      );
+      const qrData = await qrResponse.json();
+
+      if (qrData.success && qrData.data?.image) {
+        const isValid = validateQRCode(qrData.data.image);
+        const qrImage = `data:image/png;base64,${qrData.data.image}`;
+        
+        setQrCode(qrImage);
+        setIsValidQR(isValid);
+        
+        // Update selected device with new ID
+        setSelectedDevice({
+          ...selectedDevice,
+          device_id: newDeviceId
+        });
+
+        toast({
+          title: "QR Code Refreshed",
+          description: isValid ? "New QR code generated successfully" : "QR code generated - may need another refresh",
+        });
+
+        fetchDevices();
+      } else {
+        throw new Error("Failed to get new QR code");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Refresh Failed",
+        description: error.message || "Failed to refresh QR code",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -211,6 +330,9 @@ const Devices = () => {
         onOpenChange={setIsQRDialogOpen}
         qrCode={qrCode}
         deviceName={selectedDevice?.device_name}
+        isValidQR={isValidQR}
+        onRefresh={handleRefreshQR}
+        isRefreshing={isRefreshing}
       />
     </div>
   );
