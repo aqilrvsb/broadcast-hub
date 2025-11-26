@@ -95,6 +95,9 @@ export default function Sequences() {
   const [showSummaryModal, setShowSummaryModal] = useState(false)
   const [summaryData, setSummaryData] = useState<BroadcastSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [viewFlows, setViewFlows] = useState<SequenceFlow[]>([])
+  const [viewSequence, setViewSequence] = useState<Sequence | null>(null)
   const [currentSequence, setCurrentSequence] = useState<Sequence | null>(null)
   const [currentFlowNumber, setCurrentFlowNumber] = useState<number>(1)
   const [sequenceFlows, setSequenceFlows] = useState<SequenceFlow[]>([])
@@ -516,6 +519,32 @@ export default function Sequences() {
       })
     } finally {
       setSummaryLoading(false)
+    }
+  }
+
+  const handleViewSequence = async (sequence: Sequence) => {
+    try {
+      setViewSequence(sequence)
+      setShowViewModal(true)
+
+      // Load flows for this sequence
+      const { data: flowsData, error } = await supabase
+        .from('sequence_flows')
+        .select('*')
+        .eq('sequence_id', sequence.id)
+        .order('flow_number', { ascending: true })
+
+      if (error) throw error
+      setViewFlows(flowsData || [])
+    } catch (error) {
+      console.error('Error loading flows for view:', error)
+      await Swal.fire({
+        icon: 'error',
+        title: 'Error Loading Flows',
+        text: 'Failed to load sequence flows for viewing',
+      })
+      setShowViewModal(false)
+      setViewSequence(null)
     }
   }
 
@@ -1011,6 +1040,13 @@ export default function Sequences() {
                 </div>
 
                 <div className="space-y-2">
+                  {/* View button - always visible for ALL sequences regardless of status */}
+                  <button
+                    onClick={() => handleViewSequence(sequence)}
+                    className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md transition-colors font-medium text-sm"
+                  >
+                    👁 View
+                  </button>
                   {/* Show Summary button for finished sequences */}
                   {sequence.status === 'finish' && (
                     <button
@@ -1747,6 +1783,173 @@ export default function Sequences() {
                     Finish
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* View Modal - Read-only */}
+        {showViewModal && viewSequence && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div className="bg-white rounded-xl w-full max-w-5xl my-8 shadow-xl max-h-[90vh] overflow-y-auto">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-gray-600 to-gray-700 text-white p-6 rounded-t-xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-2xl font-bold">{viewSequence.name}</h3>
+                    <p className="text-gray-200 mt-1">Read-only View</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                        viewSequence.status === 'finish'
+                          ? 'bg-blue-500 text-white'
+                          : viewSequence.status === 'active'
+                          ? 'bg-green-500 text-white'
+                          : 'bg-yellow-500 text-white'
+                      }`}
+                    >
+                      {viewSequence.status === 'finish' ? 'Finish' : viewSequence.status === 'active' ? 'Lock' : 'Pending'}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setShowViewModal(false)
+                        setViewSequence(null)
+                        setViewFlows([])
+                      }}
+                      className="text-white/80 hover:text-white text-3xl"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6">
+                {/* Broadcast Details - Read-only */}
+                <div className="mb-6">
+                  <h4 className="text-lg font-bold text-gray-900 mb-4">Broadcast Details</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 uppercase font-medium mb-1">Device</p>
+                      <p className="text-gray-900 font-medium">{viewSequence.device?.device_id || 'Not set'}</p>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 uppercase font-medium mb-1">Category</p>
+                      <p className="text-gray-900 font-medium">{viewSequence.category?.name || 'Not set'}</p>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 uppercase font-medium mb-1">Total Leads</p>
+                      <p className="text-primary-600 font-bold text-lg">{viewSequence.category?.leads_count || 0}</p>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 uppercase font-medium mb-1">Schedule Date</p>
+                      <p className="text-gray-900 font-medium">
+                        {viewSequence.schedule_date
+                          ? new Date(viewSequence.schedule_date).toLocaleDateString('en-GB', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                            }).replace(/\//g, '-')
+                          : 'Not scheduled'}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 uppercase font-medium mb-1">Schedule Time</p>
+                      <p className="text-gray-900 font-medium">
+                        {viewSequence.schedule_time
+                          ? new Date(`2000-01-01T${viewSequence.schedule_time}`).toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true,
+                            })
+                          : '09:00 AM'}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 uppercase font-medium mb-1">Delay Range</p>
+                      <p className="text-gray-900 font-medium">{viewSequence.min_delay || 5}s - {viewSequence.max_delay || 15}s</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Flow Grid - Read-only */}
+                <div className="mb-6">
+                  <h4 className="text-lg font-bold text-gray-900 mb-4">Broadcast Flow</h4>
+                  <div className="grid grid-cols-7 gap-2">
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((flowNum) => {
+                      const flow = viewFlows.find(f => f.flow_number === flowNum)
+                      const isSet = !!flow
+                      return (
+                        <div
+                          key={flowNum}
+                          className={`px-3 py-6 rounded-lg border-2 font-medium text-sm ${
+                            isSet
+                              ? 'bg-green-50 border-green-400 text-green-700 cursor-pointer hover:bg-green-100'
+                              : 'bg-gray-50 border-gray-200 text-gray-400'
+                          }`}
+                          onClick={() => {
+                            if (flow) {
+                              Swal.fire({
+                                title: `Flow ${flowNum} Message`,
+                                html: `
+                                  <div class="text-left">
+                                    <div class="mb-4">
+                                      <label class="text-xs text-gray-500 font-medium uppercase">Delay Hours</label>
+                                      <p class="text-gray-900 font-medium">${flow.delay_hours} hours</p>
+                                    </div>
+                                    ${flow.image_url ? `
+                                      <div class="mb-4">
+                                        <label class="text-xs text-gray-500 font-medium uppercase">Image</label>
+                                        <img src="${flow.image_url}" alt="Flow image" class="w-full max-w-xs rounded-lg mt-2 border" />
+                                      </div>
+                                    ` : ''}
+                                    <div>
+                                      <label class="text-xs text-gray-500 font-medium uppercase">Message</label>
+                                      <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-1 whitespace-pre-wrap text-sm text-gray-700 max-h-64 overflow-y-auto">${flow.message || 'No message'}</div>
+                                    </div>
+                                  </div>
+                                `,
+                                showCloseButton: true,
+                                showConfirmButton: false,
+                                width: '600px',
+                                customClass: {
+                                  popup: 'text-left'
+                                }
+                              })
+                            }
+                          }}
+                        >
+                          <div className="text-center">
+                            <div className="font-bold mb-1">Flow {flowNum}</div>
+                            <div className="text-xs">
+                              {isSet ? (
+                                <span className="text-green-600">✓ Set</span>
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-3">Click on a green flow box to view its message content.</p>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="border-t p-4 flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowViewModal(false)
+                    setViewSequence(null)
+                    setViewFlows([])
+                  }}
+                  className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>
