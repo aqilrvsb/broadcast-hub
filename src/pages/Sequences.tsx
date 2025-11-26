@@ -134,7 +134,7 @@ export default function Sequences() {
     schedule_time: '09:00', // Time for scheduling
     min_delay: 5,
     max_delay: 15,
-    status: 'inactive' as 'active' | 'inactive',
+    status: 'inactive' as 'active' | 'inactive' | 'finish',
   })
 
   // Flow message form state
@@ -600,17 +600,7 @@ export default function Sequences() {
 
           if (result.isConfirmed) {
             // Open edit modal for this sequence
-            setEditingSequence(sequence)
-            setEditFormData({
-              name: sequence.name,
-              device_id: sequence.device_id || '',
-              category_id: sequence.category_id || '',
-              schedule_date: sequence.schedule_date || '',
-              schedule_time: sequence.schedule_time || '',
-              min_delay: sequence.min_delay || 5,
-              max_delay: sequence.max_delay || 15,
-            })
-            setShowEditModal(true)
+            handleEditSequence(sequence)
           }
           return
         }
