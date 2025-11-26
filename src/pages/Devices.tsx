@@ -26,6 +26,7 @@ const Devices = () => {
   const [isQRDialogOpen, setIsQRDialogOpen] = useState(false);
   const [isValidQR, setIsValidQR] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadingDeviceId, setLoadingDeviceId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchDevices = async () => {
@@ -135,6 +136,7 @@ const Devices = () => {
       return;
     }
 
+    setLoadingDeviceId(device.id);
     try {
       // Check device status
       const { data: { session } } = await supabase.auth.getSession();
@@ -232,6 +234,8 @@ const Devices = () => {
         description: error.message || "Failed to check device status",
         variant: "destructive",
       });
+    } finally {
+      setLoadingDeviceId(null);
     }
   };
 
@@ -431,6 +435,7 @@ const Devices = () => {
             device={device}
             onShowQR={handleShowQR}
             onDelete={handleDeleteDevice}
+            isLoadingQR={loadingDeviceId === device.id}
           />
         ))}
       </div>
