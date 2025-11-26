@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
     const apiKey = Deno.env.get('WHACENTER_API_KEY')
     
     // Build target URL with all query params plus api_key
-    const targetUrl = new URL(`https://api.whacenter.com/api/${endpoint}`)
+    const targetUrl = new URL(`https://app.whacenter.com/api/${endpoint}`)
     
     // Copy all query params except 'endpoint'
     url.searchParams.forEach((value, key) => {
