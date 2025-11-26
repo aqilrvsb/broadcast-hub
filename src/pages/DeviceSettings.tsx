@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { supabase, Device } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -6,6 +7,7 @@ import Swal from 'sweetalert2'
 
 export default function DeviceSettings() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [devices, setDevices] = useState<Device[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -780,6 +782,12 @@ export default function DeviceSettings() {
                      deviceStatuses[device.id] === 'SCAN_QR_CODE' ? 'Scan QR Code' :
                      deviceStatuses[device.id] === 'NOT_SETUP' ? 'Setup Device' :
                      'Check Status'}
+                  </button>
+                  <button
+                    onClick={() => navigate(`/contacts/${device.id}`)}
+                    className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-3 py-2.5 rounded-lg transition-colors font-semibold text-sm shadow-sm"
+                  >
+                    👥 Contact
                   </button>
                   <div className="grid grid-cols-2 gap-2">
                     <button

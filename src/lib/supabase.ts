@@ -86,3 +86,26 @@ export type Prompt = {
   created_at: string
   updated_at: string
 }
+
+export type ContactCategory = {
+  id: string
+  name: string
+  device_id: string
+  user_id: string
+  created_at: string
+  updated_at: string
+  leads_count?: number
+}
+
+export type Lead = {
+  id: number
+  device_id: string
+  category_id: string
+  prospect_name: string
+  prospect_num: string
+  product?: string
+  info?: string
+  user_id: string
+  created_at: string
+  updated_at: string
+}
