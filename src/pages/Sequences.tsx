@@ -626,6 +626,13 @@ export default function Sequences() {
     }
   }
 
+  // Get tomorrow's date in YYYY-MM-DD format for min date
+  const getTomorrowDate = () => {
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    return tomorrow.toISOString().split('T')[0]
+  }
+
   return (
     <Layout>
       <div className="p-8">
@@ -822,9 +829,11 @@ export default function Sequences() {
                       type="date"
                       value={formData.schedule_date}
                       onChange={(e) => setFormData({ ...formData, schedule_date: e.target.value })}
+                      min={getTomorrowDate()}
                       className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
                       required
                     />
+                    <p className="text-xs text-gray-500 mt-1">Min date: Tomorrow</p>
                   </div>
 
                   <div>
@@ -1011,9 +1020,11 @@ export default function Sequences() {
                       type="date"
                       value={formData.schedule_date}
                       onChange={(e) => setFormData({ ...formData, schedule_date: e.target.value })}
+                      min={getTomorrowDate()}
                       className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
                       required
                     />
+                    <p className="text-xs text-gray-500 mt-1">Min date: Tomorrow</p>
                   </div>
 
                   <div>
