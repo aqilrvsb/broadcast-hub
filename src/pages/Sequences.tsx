@@ -685,11 +685,11 @@ export default function Sequences() {
                     <span
                       className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase ${
                         sequence.status === 'active'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-red-100 text-red-700'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-yellow-100 text-yellow-700'
                       }`}
                     >
-                      {sequence.status}
+                      {sequence.status === 'active' ? 'Lock' : 'Pending'}
                     </span>
                   </div>
                 </div>
@@ -714,32 +714,36 @@ export default function Sequences() {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEditSequence(sequence)}
-                      className="flex-1 bg-white border border-green-400 text-green-600 px-3 py-2 rounded-md transition-colors font-medium text-sm hover:bg-green-50"
-                    >
-                      ✎ Update
-                    </button>
-                    <button
-                      onClick={() => handleDeleteSequence(sequence.id)}
-                      className="flex-1 bg-white border border-red-400 text-red-600 px-3 py-2 rounded-md transition-colors font-medium text-sm hover:bg-red-50"
-                    >
-                      🗑 Delete
-                    </button>
-                  </div>
+                  {/* Only show Update and Delete buttons when status is Pending (inactive) */}
+                  {sequence.status !== 'active' && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditSequence(sequence)}
+                        className="flex-1 bg-white border border-green-400 text-green-600 px-3 py-2 rounded-md transition-colors font-medium text-sm hover:bg-green-50"
+                      >
+                        ✎ Update
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSequence(sequence.id)}
+                        className="flex-1 bg-white border border-red-400 text-red-600 px-3 py-2 rounded-md transition-colors font-medium text-sm hover:bg-red-50"
+                      >
+                        🗑 Delete
+                      </button>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between pt-2">
                     <span className="text-sm text-gray-600">Status:</span>
-                    <label className="relative inline-flex items-center cursor-pointer">
+                    <label className={`relative inline-flex items-center ${sequence.status === 'active' ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                       <input
                         type="checkbox"
                         checked={sequence.status === 'active'}
                         onChange={() => handleToggleStatus(sequence)}
+                        disabled={sequence.status === 'active'}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
-                      <span className="ml-2 text-sm font-medium text-gray-700">
-                        {sequence.status === 'active' ? 'Active' : 'Inactive'}
+                      <div className={`w-11 h-6 ${sequence.status === 'active' ? 'bg-red-600' : 'bg-gray-200'} peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600`}></div>
+                      <span className={`ml-2 text-sm font-medium ${sequence.status === 'active' ? 'text-red-700' : 'text-gray-700'}`}>
+                        {sequence.status === 'active' ? 'Lock' : 'Pending'}
                       </span>
                     </label>
                   </div>
