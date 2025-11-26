@@ -21,8 +21,8 @@ func Load() *Config {
 
 	return &Config{
 		Port:                   port,
-		SupabaseURL:            getEnv("SUPABASE_URL", "https://bjnjucwpwdzgsnqmpmff.supabase.co"),
-		SupabaseAnonKey:        getEnv("SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqbmp1Y3dwd2R6Z3NucW1wbWZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0OTk1MzksImV4cCI6MjA3NjA3NTUzOX0.vw1rOUqYWFkPNDwTdEgIfsCO9pyvTsFKaXHq3RcRTNU"),
+		SupabaseURL:            getEnv("SUPABASE_URL", "https://ubfmnynwmvxfkwfxshuv.supabase.co"),
+		SupabaseAnonKey:        getEnv("SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InViZm1ueW53bXZ4Zmt3ZnhzaHV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxMjIyMTIsImV4cCI6MjA3OTY5ODIxMn0.sN5tA1dxUbYIdtbjUybrIrxAu3EXjZESDYfXU1MrduE"),
 		SupabaseServiceRoleKey: os.Getenv("SUPABASE_SERVICE_ROLE_KEY"),
 		JWTSecret:              getEnv("JWT_SECRET", "chatbot-automation-secret-key-change-in-production"),
 		BillplzAPIKey:          os.Getenv("BILLPLZ_API_KEY"),
