@@ -119,6 +119,8 @@ export default function Sequences() {
   const [currentFlowNumber, setCurrentFlowNumber] = useState<number>(1)
   const [sequenceFlows, setSequenceFlows] = useState<SequenceFlow[]>([])
   const [tempFlows, setTempFlows] = useState<SequenceFlow[]>([]) // For create modal
+  const [showMessagePreviewModal, setShowMessagePreviewModal] = useState(false)
+  const [previewMessageData, setPreviewMessageData] = useState<{ flowNumber: number; message: string; imageUrl: string | null } | null>(null)
 
   // Filter states
   const getFirstDayOfMonth = () => {
@@ -1849,7 +1851,21 @@ export default function Sequences() {
                                 </span>
                               </td>
                               <td className="px-3 py-3 text-sm text-gray-700 max-w-[150px]">
-                                <p className="line-clamp-2" title={step.step_name}>{step.step_name}</p>
+                                <button
+                                  onClick={() => {
+                                    const flow = sequenceFlows.find(f => f.flow_number === step.step)
+                                    setPreviewMessageData({
+                                      flowNumber: step.step,
+                                      message: flow?.message || step.step_name,
+                                      imageUrl: step.image_url
+                                    })
+                                    setShowMessagePreviewModal(true)
+                                  }}
+                                  className="text-left text-blue-600 hover:text-blue-800 hover:underline cursor-pointer line-clamp-2"
+                                  title="Click to view full message"
+                                >
+                                  {step.step_name}
+                                </button>
                               </td>
                               <td className="px-3 py-3 text-center">
                                 {step.image_url ? (
@@ -1968,18 +1984,132 @@ export default function Sequences() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                  {/* Formatting Toolbar */}
+                  <div className="flex items-center gap-1 mb-2 p-2 bg-gray-50 border border-gray-300 rounded-t-lg border-b-0">
+                    <span className="text-xs text-gray-500 mr-2">Format:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const textarea = document.getElementById('flow-message') as HTMLTextAreaElement
+                        if (textarea) {
+                          const start = textarea.selectionStart
+                          const end = textarea.selectionEnd
+                          const text = flowFormData.message
+                          const selectedText = text.substring(start, end)
+                          const newText = text.substring(0, start) + '*' + selectedText + '*' + text.substring(end)
+                          setFlowFormData({ ...flowFormData, message: newText })
+                          setTimeout(() => {
+                            textarea.focus()
+                            textarea.setSelectionRange(start + 1, end + 1)
+                          }, 0)
+                        }
+                      }}
+                      className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded font-bold hover:bg-gray-100"
+                      title="Bold (*text*)"
+                    >
+                      B
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const textarea = document.getElementById('flow-message') as HTMLTextAreaElement
+                        if (textarea) {
+                          const start = textarea.selectionStart
+                          const end = textarea.selectionEnd
+                          const text = flowFormData.message
+                          const selectedText = text.substring(start, end)
+                          const newText = text.substring(0, start) + '_' + selectedText + '_' + text.substring(end)
+                          setFlowFormData({ ...flowFormData, message: newText })
+                          setTimeout(() => {
+                            textarea.focus()
+                            textarea.setSelectionRange(start + 1, end + 1)
+                          }, 0)
+                        }
+                      }}
+                      className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded italic hover:bg-gray-100"
+                      title="Italic (_text_)"
+                    >
+                      I
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const textarea = document.getElementById('flow-message') as HTMLTextAreaElement
+                        if (textarea) {
+                          const start = textarea.selectionStart
+                          const end = textarea.selectionEnd
+                          const text = flowFormData.message
+                          const selectedText = text.substring(start, end)
+                          const newText = text.substring(0, start) + '~' + selectedText + '~' + text.substring(end)
+                          setFlowFormData({ ...flowFormData, message: newText })
+                          setTimeout(() => {
+                            textarea.focus()
+                            textarea.setSelectionRange(start + 1, end + 1)
+                          }, 0)
+                        }
+                      }}
+                      className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded line-through hover:bg-gray-100"
+                      title="Strikethrough (~text~)"
+                    >
+                      S
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const textarea = document.getElementById('flow-message') as HTMLTextAreaElement
+                        if (textarea) {
+                          const start = textarea.selectionStart
+                          const end = textarea.selectionEnd
+                          const text = flowFormData.message
+                          const selectedText = text.substring(start, end)
+                          const newText = text.substring(0, start) + '```' + selectedText + '```' + text.substring(end)
+                          setFlowFormData({ ...flowFormData, message: newText })
+                          setTimeout(() => {
+                            textarea.focus()
+                            textarea.setSelectionRange(start + 3, end + 3)
+                          }, 0)
+                        }
+                      }}
+                      className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded font-mono text-xs hover:bg-gray-100"
+                      title="Monospace (```text```)"
+                    >
+                      {'</>'}
+                    </button>
+                    <div className="w-px h-6 bg-gray-300 mx-2"></div>
+                    <span className="text-xs text-gray-500 mr-1">Emoji:</span>
+                    {['😊', '😍', '🥰', '😘', '🤩', '😎', '🤗', '🤑', '🤯', '😱', '👍', '👎', '👏', '🙏', '💪', '🤝', '👋', '✌️', '🤞', '👌', '❤️', '💙', '💚', '💛', '🧡', '💜', '💖', '💗', '🔥', '✨', '⭐', '✅', '❌', '⚠️'].map(emoji => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => {
+                          const textarea = document.getElementById('flow-message') as HTMLTextAreaElement
+                          if (textarea) {
+                            const start = textarea.selectionStart
+                            const text = flowFormData.message
+                            const newText = text.substring(0, start) + emoji + text.substring(start)
+                            setFlowFormData({ ...flowFormData, message: newText })
+                            setTimeout(() => {
+                              textarea.focus()
+                              textarea.setSelectionRange(start + emoji.length, start + emoji.length)
+                            }, 0)
+                          }
+                        }}
+                        className="hover:bg-gray-200 rounded p-0.5 text-base"
+                        title={emoji}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
                   <textarea
                     id="flow-message"
                     value={flowFormData.message}
                     onChange={(e) => setFlowFormData({ ...flowFormData, message: e.target.value })}
-                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    rows={6}
-                    placeholder="Enter your message..."
+                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-b-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono"
+                    rows={10}
+                    placeholder="Enter your prompt data here... Select text and use the formatting buttons above."
                     required
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    <strong>WhatsApp Formatting:</strong> *bold* | _italic_ | ~strikethrough~ | ```monospace``` | 😊 Emojis supported
-                  </p>
                 </div>
 
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -1994,9 +2124,24 @@ export default function Sequences() {
                       />
                     </div>
                   )}
-                  <div className="text-sm text-gray-600 whitespace-pre-wrap min-h-[60px]">
-                    {flowFormData.message || 'Your formatted message will appear here...'}
-                  </div>
+                  <div
+                    className="text-sm text-gray-800 whitespace-pre-wrap min-h-[100px] bg-white p-3 rounded border border-gray-200"
+                    dangerouslySetInnerHTML={{
+                      __html: flowFormData.message
+                        ? flowFormData.message
+                            // Bold: *text*
+                            .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
+                            // Italic: _text_
+                            .replace(/_([^_]+)_/g, '<em>$1</em>')
+                            // Strikethrough: ~text~
+                            .replace(/~([^~]+)~/g, '<del>$1</del>')
+                            // Monospace: ```text```
+                            .replace(/```([^`]+)```/g, '<code class="bg-gray-200 px-1 rounded font-mono text-sm">$1</code>')
+                            // Preserve line breaks
+                            .replace(/\n/g, '<br/>')
+                        : '<span class="text-gray-400">Your formatted message will appear here...</span>'
+                    }}
+                  />
                 </div>
 
                 <div>
@@ -2217,6 +2362,76 @@ export default function Sequences() {
                 >
                   Close
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Message Preview Modal */}
+        {showMessagePreviewModal && previewMessageData && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[80] overflow-y-auto">
+            <div className="bg-white rounded-xl w-full max-w-2xl my-8 shadow-xl max-h-[90vh] overflow-y-auto">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 rounded-t-xl flex items-center justify-between">
+                <h3 className="text-xl font-bold">Flow {previewMessageData.flowNumber} Message</h3>
+                <button
+                  onClick={() => {
+                    setShowMessagePreviewModal(false)
+                    setPreviewMessageData(null)
+                  }}
+                  className="text-white/80 hover:text-white text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-6">
+                {/* Image Preview */}
+                {previewMessageData.imageUrl && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Image</label>
+                    <img
+                      src={previewMessageData.imageUrl}
+                      alt="Flow image"
+                      className="max-w-full max-h-64 rounded-lg border border-gray-300 object-contain"
+                    />
+                  </div>
+                )}
+
+                {/* Message with formatting */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                  <div
+                    className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-gray-800 whitespace-pre-wrap"
+                    dangerouslySetInnerHTML={{
+                      __html: previewMessageData.message
+                        // Bold: *text*
+                        .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
+                        // Italic: _text_
+                        .replace(/_([^_]+)_/g, '<em>$1</em>')
+                        // Strikethrough: ~text~
+                        .replace(/~([^~]+)~/g, '<del>$1</del>')
+                        // Monospace: ```text```
+                        .replace(/```([^`]+)```/g, '<code class="bg-gray-200 px-1 rounded font-mono text-sm">$1</code>')
+                        // Preserve line breaks
+                        .replace(/\n/g, '<br/>')
+                    }}
+                  />
+                </div>
+
+                {/* Close Button */}
+                <div className="mt-6 flex justify-end">
+                  <button
+                    onClick={() => {
+                      setShowMessagePreviewModal(false)
+                      setPreviewMessageData(null)
+                    }}
+                    className="px-6 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-lg font-medium transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           </div>
