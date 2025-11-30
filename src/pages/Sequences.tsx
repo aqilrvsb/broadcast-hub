@@ -783,7 +783,7 @@ export default function Sequences() {
           return
         }
 
-        if (deviceStatus.status !== 'Connected') {
+        if (deviceStatus.status?.toUpperCase() !== 'CONNECTED') {
           await Swal.fire({
             icon: 'error',
             title: 'Device Not Connected',
@@ -1833,7 +1833,6 @@ export default function Sequences() {
                             <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase">Step</th>
                             <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase">Step Name</th>
                             <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase">Image</th>
-                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase">Message</th>
                             <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase">Should Send</th>
                             <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase">Sent</th>
                             <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase">Failed</th>
@@ -1858,13 +1857,6 @@ export default function Sequences() {
                                 ) : (
                                   <span className="text-gray-400">-</span>
                                 )}
-                              </td>
-                              <td className="px-3 py-3 text-sm text-gray-700 max-w-[200px]">
-                                {(() => {
-                                  const flow = sequenceFlows.find(f => f.flow_number === step.step)
-                                  const message = flow?.message || '-'
-                                  return <p className="line-clamp-2" title={message}>{message}</p>
-                                })()}
                               </td>
                               <td className="px-3 py-3 text-center">
                                 <button
