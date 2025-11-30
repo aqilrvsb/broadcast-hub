@@ -21,6 +21,7 @@ type Sequence = {
   created_at: string
   updated_at: string
   contact_count?: number
+  flows_count?: number
   device?: Device
   category?: ContactCategory
 }
@@ -62,6 +63,15 @@ type BroadcastSummary = {
   }[]
 }
 
+type ScheduledMessageRecipient = {
+  id: string
+  prospect_num: string
+  prospect_name: string
+  whacenter_message_id: string
+  scheduled_time: string
+  status: string
+}
+
 type SequenceFlow = {
   id: string
   sequence_id: string
@@ -99,6 +109,12 @@ export default function Sequences() {
   const [viewFlows, setViewFlows] = useState<SequenceFlow[]>([])
   const [viewSequence, setViewSequence] = useState<Sequence | null>(null)
   const [currentSequence, setCurrentSequence] = useState<Sequence | null>(null)
+  const [showRecipientsModal, setShowRecipientsModal] = useState(false)
+  const [recipientsData, setRecipientsData] = useState<ScheduledMessageRecipient[]>([])
+  const [recipientsLoading, setRecipientsLoading] = useState(false)
+  const [recipientsTitle, setRecipientsTitle] = useState('')
+  const [recipientsFlowNumber, setRecipientsFlowNumber] = useState<number>(0)
+  const [recipientsStatus, setRecipientsStatus] = useState<string>('')
   const [currentFlowNumber, setCurrentFlowNumber] = useState<number>(1)
   const [sequenceFlows, setSequenceFlows] = useState<SequenceFlow[]>([])
   const [tempFlows, setTempFlows] = useState<SequenceFlow[]>([]) // For create modal
@@ -208,9 +224,16 @@ export default function Sequences() {
               leadsCount = categoryLeadsCount || 0
             }
 
+            // Fetch flows count for this sequence
+            const { count: flowsCount } = await supabase
+              .from('sequence_flows')
+              .select('*', { count: 'exact', head: true })
+              .eq('sequence_id', seq.id)
+
             return {
               ...seq,
               contact_count: count || 0,
+              flows_count: flowsCount || 0,
               device,
               category: category ? { ...category, leads_count: leadsCount } : null,
             }
@@ -546,6 +569,174 @@ export default function Sequences() {
       setShowViewModal(false)
       setViewSequence(null)
     }
+  }
+
+  // Handler to show recipients modal with clickable numbers
+  const handleShowRecipients = async (flowNumber: number, status: string, title: string) => {
+    if (!currentSequence) return
+
+    try {
+      setRecipientsLoading(true)
+      setRecipientsTitle(title)
+      setRecipientsFlowNumber(flowNumber)
+      setRecipientsStatus(status)
+      setShowRecipientsModal(true)
+
+      // Get scheduled messages for this flow and status
+      let query = supabase
+        .from('sequence_scheduled_messages')
+        .select('id, prospect_num, whacenter_message_id, scheduled_time, status')
+        .eq('sequence_id', currentSequence.id)
+        .eq('flow_number', flowNumber)
+
+      // Filter by status type
+      if (status === 'sent') {
+        query = query.eq('status', 'sent')
+      } else if (status === 'failed') {
+        query = query.eq('status', 'failed')
+      } else if (status === 'remaining') {
+        query = query.eq('status', 'scheduled')
+      } else if (status === 'should_send') {
+        // All statuses for this flow
+      }
+
+      const { data: messages, error } = await query
+
+      if (error) throw error
+
+      // Get lead names for each prospect_num
+      const recipientsWithNames: ScheduledMessageRecipient[] = await Promise.all(
+        (messages || []).map(async (msg) => {
+          const { data: lead } = await supabase
+            .from('leads')
+            .select('prospect_name')
+            .eq('prospect_num', msg.prospect_num)
+            .single()
+
+          return {
+            id: msg.id,
+            prospect_num: msg.prospect_num,
+            prospect_name: lead?.prospect_name || 'Unknown',
+            whacenter_message_id: msg.whacenter_message_id || '',
+            scheduled_time: msg.scheduled_time,
+            status: msg.status,
+          }
+        })
+      )
+
+      setRecipientsData(recipientsWithNames)
+    } catch (error) {
+      console.error('Error loading recipients:', error)
+      await Swal.fire({
+        icon: 'error',
+        title: 'Failed to Load Recipients',
+        text: 'Could not load recipient list',
+      })
+      setShowRecipientsModal(false)
+    } finally {
+      setRecipientsLoading(false)
+    }
+  }
+
+  // Handler to delete scheduled message from WhatsApp Center and database
+  const handleDeleteScheduled = async (recipient: ScheduledMessageRecipient) => {
+    if (!currentSequence) return
+
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: 'Delete Scheduled Message?',
+      html: `
+        <p>This will cancel the scheduled message for:</p>
+        <p class="font-bold mt-2">${recipient.prospect_name} (${recipient.prospect_num})</p>
+        <p class="text-sm text-gray-500 mt-2">The message will be removed from WhatsApp Center schedule.</p>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Delete',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#ef4444',
+    })
+
+    if (!result.isConfirmed) return
+
+    try {
+      // Get device instance for WhatsApp Center API
+      const { data: device } = await supabase
+        .from('device_setting')
+        .select('instance')
+        .eq('id', currentSequence.device_id)
+        .single()
+
+      if (device?.instance && recipient.whacenter_message_id) {
+        // Delete from WhatsApp Center
+        const WHACENTER_API_URL = 'https://app.whacenter.com/api/deleteMessage'
+        const formData = new FormData()
+        formData.append('device_id', device.instance)
+        formData.append('id', recipient.whacenter_message_id)
+
+        await fetch(WHACENTER_API_URL, {
+          method: 'GET',
+          body: formData,
+        }).catch(err => console.warn('WhatsApp Center delete error:', err))
+      }
+
+      // Update status to cancelled in database
+      await supabase
+        .from('sequence_scheduled_messages')
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .eq('id', recipient.id)
+
+      // Remove from local state
+      setRecipientsData(prev => prev.filter(r => r.id !== recipient.id))
+
+      // Refresh summary data
+      if (currentSequence) {
+        const DENO_API_URL = import.meta.env.VITE_DENO_API_URL || 'https://broadcast-hub.deno.dev'
+        const response = await fetch(`${DENO_API_URL}/api/broadcast/summary?sequence_id=${currentSequence.id}`)
+        const data = await response.json()
+        if (data.success) {
+          setSummaryData(data)
+        }
+      }
+
+      await Swal.fire({
+        icon: 'success',
+        title: 'Deleted!',
+        text: 'Scheduled message has been cancelled.',
+        timer: 2000,
+        showConfirmButton: false,
+      })
+    } catch (error) {
+      console.error('Error deleting scheduled message:', error)
+      await Swal.fire({
+        icon: 'error',
+        title: 'Failed to Delete',
+        text: 'Could not delete scheduled message',
+      })
+    }
+  }
+
+  // Handler to export recipients to CSV
+  const handleExportCSV = () => {
+    if (recipientsData.length === 0) return
+
+    const headers = ['Name', 'Phone Number', 'Scheduled Time', 'Status']
+    const rows = recipientsData.map(r => [
+      r.prospect_name,
+      r.prospect_num,
+      new Date(r.scheduled_time).toLocaleString('en-GB'),
+      r.status,
+    ])
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
+    ].join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `recipients_flow${recipientsFlowNumber}_${recipientsStatus}.csv`
+    link.click()
   }
 
   const handleToggleStatus = async (sequence: Sequence) => {
@@ -1028,6 +1219,9 @@ export default function Sequences() {
                   </div>
                   <div>
                     <p className="text-gray-500">Total Leads: <span className="text-primary-600 font-bold">{sequence.category?.leads_count || 0}</span></p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Total Flows: <span className="text-purple-600 font-bold">{sequence.flows_count || 0}</span></p>
                   </div>
                   <div>
                     <p className="text-gray-500">Schedule: <span className="text-gray-900 font-medium">
@@ -1602,45 +1796,74 @@ export default function Sequences() {
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Step</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Step Name</th>
-                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Image</th>
-                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Should Send</th>
-                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Sent</th>
-                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Sent %</th>
-                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Failed</th>
-                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Failed %</th>
-                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Remaining</th>
-                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Remaining %</th>
-                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase w-32">Progress</th>
+                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase">Step</th>
+                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase">Step Name</th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase">Image</th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase">Should Send</th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase">Sent</th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase">Failed</th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase">Remaining</th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase w-28">Progress</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                           {summaryData.step_progress.map((step) => (
                             <tr key={step.step} className="hover:bg-gray-50">
-                              <td className="px-4 py-3 text-center">
+                              <td className="px-3 py-3 text-center">
                                 <span className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-700 rounded-full font-bold text-sm">
                                   {step.step}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 text-sm text-gray-700 max-w-xs">
+                              <td className="px-3 py-3 text-sm text-gray-700 max-w-[150px]">
                                 <p className="line-clamp-2" title={step.step_name}>{step.step_name}</p>
                               </td>
-                              <td className="px-4 py-3 text-center">
+                              <td className="px-3 py-3 text-center">
                                 {step.image_url ? (
-                                  <img src={step.image_url} alt="" className="w-12 h-12 object-cover rounded mx-auto" />
+                                  <img src={step.image_url} alt="" className="w-10 h-10 object-cover rounded mx-auto" />
                                 ) : (
                                   <span className="text-gray-400">-</span>
                                 )}
                               </td>
-                              <td className="px-4 py-3 text-center font-medium text-gray-900">{step.should_send}</td>
-                              <td className="px-4 py-3 text-center font-medium text-green-600">{step.sent}</td>
-                              <td className="px-4 py-3 text-center text-green-600">{step.sent_percentage}%</td>
-                              <td className="px-4 py-3 text-center font-medium text-red-600">{step.failed}</td>
-                              <td className="px-4 py-3 text-center text-red-600">{step.failed_percentage}%</td>
-                              <td className="px-4 py-3 text-center font-medium text-yellow-600">{step.remaining}</td>
-                              <td className="px-4 py-3 text-center text-yellow-600">{step.remaining_percentage}%</td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-3 text-center">
+                                <button
+                                  onClick={() => handleShowRecipients(step.step, 'should_send', `Flow ${step.step} - All Recipients`)}
+                                  className="font-bold text-gray-900 hover:text-blue-600 hover:underline cursor-pointer"
+                                  title="Click to view all recipients"
+                                >
+                                  {step.should_send}
+                                </button>
+                              </td>
+                              <td className="px-3 py-3 text-center">
+                                <button
+                                  onClick={() => handleShowRecipients(step.step, 'sent', `Flow ${step.step} - Sent`)}
+                                  className="font-bold text-green-600 hover:text-green-800 hover:underline cursor-pointer"
+                                  title="Click to view sent recipients"
+                                >
+                                  {step.sent}
+                                </button>
+                                <span className="text-xs text-green-500 block">{step.sent_percentage}%</span>
+                              </td>
+                              <td className="px-3 py-3 text-center">
+                                <button
+                                  onClick={() => handleShowRecipients(step.step, 'failed', `Flow ${step.step} - Failed`)}
+                                  className="font-bold text-red-600 hover:text-red-800 hover:underline cursor-pointer"
+                                  title="Click to view failed recipients"
+                                >
+                                  {step.failed}
+                                </button>
+                                <span className="text-xs text-red-500 block">{step.failed_percentage}%</span>
+                              </td>
+                              <td className="px-3 py-3 text-center">
+                                <button
+                                  onClick={() => handleShowRecipients(step.step, 'remaining', `Flow ${step.step} - Remaining`)}
+                                  className="font-bold text-yellow-600 hover:text-yellow-800 hover:underline cursor-pointer"
+                                  title="Click to view remaining recipients"
+                                >
+                                  {step.remaining}
+                                </button>
+                                <span className="text-xs text-yellow-500 block">{step.remaining_percentage}%</span>
+                              </td>
+                              <td className="px-3 py-3">
                                 <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden">
                                   <div
                                     className="bg-green-500 h-full"
@@ -1954,6 +2177,120 @@ export default function Sequences() {
                     setShowViewModal(false)
                     setViewSequence(null)
                     setViewFlows([])
+                  }}
+                  className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Recipients Modal */}
+        {showRecipientsModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[70] overflow-y-auto">
+            <div className="bg-white rounded-xl w-full max-w-3xl my-8 shadow-xl max-h-[90vh] overflow-y-auto">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-6 rounded-t-xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold">{recipientsTitle}</h3>
+                    <p className="text-purple-200 mt-1">{recipientsData.length} recipient(s)</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowRecipientsModal(false)
+                      setRecipientsData([])
+                    }}
+                    className="text-white/80 hover:text-white text-3xl"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+
+              {recipientsLoading ? (
+                <div className="p-12 text-center">
+                  <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-purple-500 border-r-transparent"></div>
+                  <p className="mt-4 text-gray-600">Loading recipients...</p>
+                </div>
+              ) : recipientsData.length === 0 ? (
+                <div className="p-12 text-center">
+                  <p className="text-gray-600">No recipients found</p>
+                </div>
+              ) : (
+                <div className="p-6">
+                  {/* Action buttons */}
+                  <div className="flex gap-2 mb-4">
+                    <button
+                      onClick={handleExportCSV}
+                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium text-sm transition-colors flex items-center gap-2"
+                    >
+                      📥 Export CSV
+                    </button>
+                  </div>
+
+                  {/* Recipients table */}
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Name</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Phone Number</th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Scheduled Time</th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Status</th>
+                          {(recipientsStatus === 'remaining' || recipientsStatus === 'failed') && (
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Action</th>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {recipientsData.map((recipient) => (
+                          <tr key={recipient.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{recipient.prospect_name}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{recipient.prospect_num}</td>
+                            <td className="px-4 py-3 text-center text-xs text-gray-600">
+                              {new Date(recipient.scheduled_time).toLocaleString('en-GB', {
+                                day: '2-digit', month: '2-digit', year: 'numeric',
+                                hour: '2-digit', minute: '2-digit'
+                              })}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                                recipient.status === 'sent' ? 'bg-green-100 text-green-700' :
+                                recipient.status === 'failed' ? 'bg-red-100 text-red-700' :
+                                recipient.status === 'scheduled' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-gray-100 text-gray-700'
+                              }`}>
+                                {recipient.status === 'scheduled' ? 'Remaining' : recipient.status.charAt(0).toUpperCase() + recipient.status.slice(1)}
+                              </span>
+                            </td>
+                            {(recipientsStatus === 'remaining' || recipientsStatus === 'failed') && (
+                              <td className="px-4 py-3 text-center">
+                                <button
+                                  onClick={() => handleDeleteScheduled(recipient)}
+                                  className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-xs font-medium transition-colors"
+                                  title="Delete scheduled message"
+                                >
+                                  🗑 Delete
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="border-t p-4 flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowRecipientsModal(false)
+                    setRecipientsData([])
                   }}
                   className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
                 >
