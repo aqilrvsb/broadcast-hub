@@ -734,7 +734,7 @@ export default function Sequences() {
     setShowFlowEditModal(true)
   }
 
-  const handleSaveFlowInCreate = () => {
+  const handleSaveFlowInCreate = async () => {
     // Auto-generate step_trigger from sequence trigger and flow number
     const stepTrigger = `${formData.trigger}_flow${currentFlowNumber}`
     const nextTrigger = `${formData.trigger}_flow${currentFlowNumber + 1}`
@@ -758,6 +758,15 @@ export default function Sequences() {
     setTempFlows([...updatedFlows, newFlow])
     setShowFlowEditModal(false)
     resetFlowForm()
+
+    // Show success message
+    await Swal.fire({
+      icon: 'success',
+      title: 'Flow Saved!',
+      text: `Flow ${currentFlowNumber} has been saved successfully.`,
+      timer: 2000,
+      showConfirmButton: false,
+    })
   }
 
   const handleSaveFlowInEdit = async () => {
@@ -1717,6 +1726,16 @@ export default function Sequences() {
 
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                   <h4 className="text-sm font-medium text-gray-700 mb-2">Live Preview</h4>
+                  {/* Show selected image preview above message */}
+                  {flowFormData.image_url && (
+                    <div className="mb-3">
+                      <img
+                        src={flowFormData.image_url}
+                        alt="Preview"
+                        className="max-w-full max-h-48 rounded-lg border border-gray-300 object-contain"
+                      />
+                    </div>
+                  )}
                   <div className="text-sm text-gray-600 whitespace-pre-wrap min-h-[60px]">
                     {flowFormData.message || 'Your formatted message will appear here...'}
                   </div>
