@@ -106,7 +106,6 @@ export default function Sequences() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [showFlowEditModal, setShowFlowEditModal] = useState(false)
   const [showPersonalizeFlowEditModal, setShowPersonalizeFlowEditModal] = useState(false)
-  const [isEditingPersonalizeFlow, setIsEditingPersonalizeFlow] = useState(false)
   const [showSummaryModal, setShowSummaryModal] = useState(false)
   const [summaryData, setSummaryData] = useState<BroadcastSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
@@ -978,7 +977,6 @@ export default function Sequences() {
   // Personalize flow edit functions
   const handleOpenPersonalizeFlowEdit = (flowNumber: number) => {
     setCurrentFlowNumber(flowNumber)
-    setIsEditingPersonalizeFlow(true)
 
     // Load from tempPersonalizeFlows
     const existingFlow = tempPersonalizeFlows.find(f => f.flow_number === flowNumber)
@@ -1031,7 +1029,6 @@ export default function Sequences() {
     }
 
     setShowPersonalizeFlowEditModal(false)
-    setIsEditingPersonalizeFlow(false)
     resetFlowForm()
   }
 
@@ -2596,7 +2593,6 @@ export default function Sequences() {
                 <button
                   onClick={() => {
                     setShowPersonalizeFlowEditModal(false)
-                    setIsEditingPersonalizeFlow(false)
                     resetFlowForm()
                   }}
                   className="text-gray-400 hover:text-gray-600 text-2xl"
@@ -2785,7 +2781,6 @@ export default function Sequences() {
                     type="button"
                     onClick={() => {
                       setShowPersonalizeFlowEditModal(false)
-                      setIsEditingPersonalizeFlow(false)
                       resetFlowForm()
                     }}
                     className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
