@@ -2251,10 +2251,9 @@ export default function Sequences() {
                             <td className="px-4 py-3 text-sm font-medium text-gray-900">{recipient.prospect_name}</td>
                             <td className="px-4 py-3 text-sm text-gray-700">{recipient.prospect_num}</td>
                             <td className="px-4 py-3 text-center text-xs text-gray-600">
-                              {new Date(recipient.scheduled_time).toLocaleString('en-GB', {
-                                day: '2-digit', month: '2-digit', year: 'numeric',
-                                hour: '2-digit', minute: '2-digit'
-                              })}
+                              {recipient.scheduled_time
+                                ? `${recipient.scheduled_time.substring(8, 10)}/${recipient.scheduled_time.substring(5, 7)}/${recipient.scheduled_time.substring(0, 4)}, ${recipient.scheduled_time.substring(11, 16)}`
+                                : '-'}
                             </td>
                             <td className="px-4 py-3 text-center">
                               <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
