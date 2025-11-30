@@ -1732,10 +1732,10 @@ export default function Sequences() {
                 <div className="p-6">
                   {/* Overall Statistics */}
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-                    <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
-                      <p className="text-xs text-red-600 font-medium uppercase">Should Send</p>
-                      <p className="text-3xl font-bold text-red-700">{summaryData.overall.should_send}</p>
-                      <p className="text-xs text-red-500">Total Messages</p>
+                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
+                      <p className="text-xs text-gray-600 font-medium uppercase">Should Send</p>
+                      <p className="text-3xl font-bold text-gray-900">{summaryData.overall.should_send}</p>
+                      <p className="text-xs text-gray-500">Total Messages</p>
                     </div>
                     <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
                       <p className="text-xs text-green-600 font-medium uppercase">Sent</p>
