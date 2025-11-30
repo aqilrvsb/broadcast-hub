@@ -18,6 +18,7 @@ type Sequence = {
   min_delay: number
   max_delay: number
   status: 'active' | 'inactive' | 'finish'
+  sequence_type: 'broadcast' | 'personalize'
   created_at: string
   updated_at: string
   contact_count?: number
@@ -101,8 +102,11 @@ export default function Sequences() {
   const [bankImages, setBankImages] = useState<BankImage[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showPersonalizeModal, setShowPersonalizeModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showFlowEditModal, setShowFlowEditModal] = useState(false)
+  const [showPersonalizeFlowEditModal, setShowPersonalizeFlowEditModal] = useState(false)
+  const [isEditingPersonalizeFlow, setIsEditingPersonalizeFlow] = useState(false)
   const [showSummaryModal, setShowSummaryModal] = useState(false)
   const [summaryData, setSummaryData] = useState<BroadcastSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
@@ -119,6 +123,7 @@ export default function Sequences() {
   const [currentFlowNumber, setCurrentFlowNumber] = useState<number>(1)
   const [sequenceFlows, setSequenceFlows] = useState<SequenceFlow[]>([])
   const [tempFlows, setTempFlows] = useState<SequenceFlow[]>([]) // For create modal
+  const [tempPersonalizeFlows, setTempPersonalizeFlows] = useState<SequenceFlow[]>([]) // For personalize modal
   const [showMessagePreviewModal, setShowMessagePreviewModal] = useState(false)
   const [previewMessageData, setPreviewMessageData] = useState<{ flowNumber: number; message: string; imageUrl: string | null } | null>(null)
 
@@ -351,6 +356,7 @@ export default function Sequences() {
         .insert({
           user_id: user.id,
           ...formData,
+          sequence_type: 'broadcast',
         })
         .select()
         .single()
@@ -969,6 +975,142 @@ export default function Sequences() {
     setShowFlowEditModal(true)
   }
 
+  // Personalize flow edit functions
+  const handleOpenPersonalizeFlowEdit = (flowNumber: number) => {
+    setCurrentFlowNumber(flowNumber)
+    setIsEditingPersonalizeFlow(true)
+
+    // Load from tempPersonalizeFlows
+    const existingFlow = tempPersonalizeFlows.find(f => f.flow_number === flowNumber)
+    if (existingFlow) {
+      setFlowFormData({
+        flow_number: existingFlow.flow_number,
+        step_trigger: existingFlow.step_trigger,
+        next_trigger: existingFlow.next_trigger || '',
+        delay_hours: 0, // Always 0 for personalize
+        message: existingFlow.message,
+        image_url: existingFlow.image_url || '',
+        is_end: existingFlow.is_end,
+      })
+    } else {
+      resetFlowForm()
+      setFlowFormData({ ...flowFormData, flow_number: flowNumber, delay_hours: 0 })
+    }
+
+    setShowPersonalizeFlowEditModal(true)
+  }
+
+  const handleSavePersonalizeFlow = () => {
+    // Auto-generate step_trigger from sequence trigger and flow number
+    const stepTrigger = `personalize_flow${currentFlowNumber}`
+    const nextTrigger = `personalize_flow${currentFlowNumber + 1}`
+
+    // Save to tempPersonalizeFlows
+    const newFlow: SequenceFlow = {
+      id: `temp-${currentFlowNumber}`,
+      sequence_id: '',
+      flow_number: currentFlowNumber,
+      step_trigger: stepTrigger,
+      next_trigger: nextTrigger,
+      delay_hours: 0, // Always 0 for personalize
+      message: flowFormData.message,
+      image_url: flowFormData.image_url || null,
+      is_end: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    // Update or add flow
+    const existingIndex = tempPersonalizeFlows.findIndex(f => f.flow_number === currentFlowNumber)
+    if (existingIndex >= 0) {
+      const updated = [...tempPersonalizeFlows]
+      updated[existingIndex] = newFlow
+      setTempPersonalizeFlows(updated)
+    } else {
+      setTempPersonalizeFlows([...tempPersonalizeFlows, newFlow])
+    }
+
+    setShowPersonalizeFlowEditModal(false)
+    setIsEditingPersonalizeFlow(false)
+    resetFlowForm()
+  }
+
+  const isPersonalizeFlowSet = (flowNumber: number) => {
+    return tempPersonalizeFlows.some(f => f.flow_number === flowNumber && f.message)
+  }
+
+  const handleCreatePersonalize = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!user?.id) return
+
+    // Check if at least Flow 1 exists
+    const hasFlow1 = tempPersonalizeFlows.some(f => f.flow_number === 1)
+    if (!hasFlow1) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Flow 1 Required',
+        text: 'Please set up at least Flow 1 before creating a personalize broadcast.',
+      })
+      return
+    }
+
+    try {
+      // Create sequence first with type 'personalize'
+      const { data: sequenceData, error: sequenceError } = await supabase
+        .from('sequences')
+        .insert({
+          user_id: user.id,
+          ...formData,
+          sequence_type: 'personalize',
+        })
+        .select()
+        .single()
+
+      if (sequenceError) throw sequenceError
+
+      // Insert all flows that were created in the modal
+      if (tempPersonalizeFlows.length > 0 && sequenceData) {
+        const flowsToInsert = tempPersonalizeFlows.map(flow => ({
+          sequence_id: sequenceData.id,
+          flow_number: flow.flow_number,
+          step_trigger: flow.step_trigger,
+          next_trigger: flow.next_trigger,
+          delay_hours: 0, // Always 0 for personalize
+          message: flow.message,
+          image_url: flow.image_url,
+          is_end: flow.is_end,
+        }))
+
+        const { error: flowsError } = await supabase
+          .from('sequence_flows')
+          .insert(flowsToInsert)
+
+        if (flowsError) throw flowsError
+      }
+
+      await Swal.fire({
+        icon: 'success',
+        title: 'Personalize Broadcast Created!',
+        text: 'Your personalize sequence has been created successfully.',
+        timer: 2000,
+        showConfirmButton: false,
+      })
+
+      setShowPersonalizeModal(false)
+      resetForm()
+      setTempPersonalizeFlows([])
+      loadSequences()
+    } catch (error: any) {
+      console.error('Error creating personalize sequence:', error)
+      await Swal.fire({
+        icon: 'error',
+        title: 'Failed to Create Personalize',
+        text: error.message || 'Failed to create personalize sequence',
+      })
+    }
+  }
+
   const handleSaveFlowInCreate = async () => {
     // Auto-generate step_trigger from sequence trigger and flow number
     const stepTrigger = `${formData.trigger}_flow${currentFlowNumber}`
@@ -1157,17 +1299,31 @@ export default function Sequences() {
             <h2 className="text-3xl font-bold text-gray-900">Broadcast</h2>
             <p className="text-gray-600">Create automated drip campaigns for your contacts</p>
           </div>
-          <button
-            onClick={() => {
-              setShowCreateModal(true)
-              setTempFlows([])
-              setCurrentSequence(null) // Clear to ensure Create mode, not Edit mode
-            }}
-            className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center gap-2"
-          >
-            <span>⊕</span>
-            <span>Create Broadcast</span>
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                setShowCreateModal(true)
+                setTempFlows([])
+                setCurrentSequence(null) // Clear to ensure Create mode, not Edit mode
+              }}
+              className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center gap-2"
+            >
+              <span>⊕</span>
+              <span>Create Broadcast</span>
+            </button>
+            <button
+              onClick={() => {
+                setShowPersonalizeModal(true)
+                setTempPersonalizeFlows([])
+                setCurrentSequence(null)
+                resetForm()
+              }}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center gap-2"
+            >
+              <span>⊕</span>
+              <span>Create Personalize</span>
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -1241,17 +1397,30 @@ export default function Sequences() {
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h3 className="text-xl font-bold text-gray-900 mb-1">{sequence.name}</h3>
-                    <span
-                      className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                        sequence.status === 'finish'
-                          ? 'bg-blue-100 text-blue-700'
-                          : sequence.status === 'active'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-yellow-100 text-yellow-700'
-                      }`}
-                    >
-                      {sequence.status === 'finish' ? 'Finish' : sequence.status === 'active' ? 'Lock' : 'Pending'}
-                    </span>
+                    <div className="flex gap-2">
+                      {/* Sequence Type Badge */}
+                      <span
+                        className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                          sequence.sequence_type === 'personalize'
+                            ? 'bg-purple-100 text-purple-700'
+                            : 'bg-orange-100 text-orange-700'
+                        }`}
+                      >
+                        {sequence.sequence_type === 'personalize' ? 'Personalize' : 'Broadcast'}
+                      </span>
+                      {/* Status Badge */}
+                      <span
+                        className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                          sequence.status === 'finish'
+                            ? 'bg-blue-100 text-blue-700'
+                            : sequence.status === 'active'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                        }`}
+                      >
+                        {sequence.status === 'finish' ? 'Finish' : sequence.status === 'active' ? 'Lock' : 'Pending'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -1542,6 +1711,209 @@ export default function Sequences() {
                     className="flex-1 bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
                   >
                     Create Broadcast
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Create Personalize Modal */}
+        {showPersonalizeModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div className="bg-white rounded-xl p-6 w-full max-w-6xl my-8 shadow-xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-purple-700">Create Personalize Broadcast</h3>
+                  <p className="text-sm text-gray-600 mt-1">Each flow sends to one contact (Flow 1 → Contact 1, Flow 2 → Contact 2, etc.)</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowPersonalizeModal(false)
+                    resetForm()
+                    setTempPersonalizeFlows([])
+                  }}
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              <form onSubmit={handleCreatePersonalize} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Personalize Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Device <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.device_id}
+                      onChange={(e) => {
+                        const deviceId = e.target.value
+                        setFormData({ ...formData, device_id: deviceId, category_id: '' })
+                        loadContactCategories(deviceId)
+                      }}
+                      className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      required
+                    >
+                      <option value="">Select Device</option>
+                      {devices.map((device) => (
+                        <option key={device.id} value={device.id}>
+                          {device.device_id} ({device.phone_number || 'No phone'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Category Contact <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.category_id}
+                      onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                      className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      required
+                      disabled={!formData.device_id}
+                    >
+                      <option value="">
+                        {formData.device_id ? 'Select Category Contact' : 'Select Device First'}
+                      </option>
+                      {contactCategories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name} ({category.leads_count || 0} leads)
+                        </option>
+                      ))}
+                    </select>
+                    {formData.device_id && contactCategories.length === 0 && (
+                      <p className="text-xs text-amber-600 mt-1">No categories found for this device. Create categories first.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Schedule Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.schedule_date}
+                      onChange={(e) => setFormData({ ...formData, schedule_date: e.target.value })}
+                      min={getTomorrowDate()}
+                      className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Min date: Tomorrow</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Schedule Time <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={formData.schedule_time}
+                      onChange={(e) => setFormData({ ...formData, schedule_time: e.target.value })}
+                      className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Min Delay (seconds)</label>
+                    <input
+                      type="number"
+                      value={formData.min_delay}
+                      onChange={(e) => setFormData({ ...formData, min_delay: parseInt(e.target.value) || 0 })}
+                      className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      min="0"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Gap between each contact</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Max Delay (seconds)</label>
+                    <input
+                      type="number"
+                      value={formData.max_delay}
+                      onChange={(e) => setFormData({ ...formData, max_delay: parseInt(e.target.value) || 0 })}
+                      className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      min="0"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Gap between each contact</p>
+                  </div>
+                </div>
+
+                {/* Personalize Flow Grid - 100 flows in 10x10 grid */}
+                <div className="mt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-bold text-purple-700">Personalize Flows (100 max)</h4>
+                    <span className="text-sm text-gray-500">
+                      {tempPersonalizeFlows.length} flows set
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Flow 1 → Contact 1, Flow 2 → Contact 2... If you have more contacts than flows, flows will cycle (Contact 31 gets Flow 1 again if only 30 flows exist).
+                  </p>
+                  <div className="grid grid-cols-10 gap-1">
+                    {Array.from({ length: 100 }, (_, i) => i + 1).map((flowNum) => (
+                      <button
+                        key={flowNum}
+                        type="button"
+                        onClick={() => handleOpenPersonalizeFlowEdit(flowNum)}
+                        className={`px-1 py-3 rounded-lg border-2 font-medium text-xs transition-colors ${
+                          isPersonalizeFlowSet(flowNum)
+                            ? 'bg-purple-50 border-purple-400 text-purple-700'
+                            : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
+                        }`}
+                      >
+                        <div className="text-center">
+                          <div className="font-bold">{flowNum}</div>
+                          <div className="text-[10px]">
+                            {isPersonalizeFlowSet(flowNum) ? (
+                              <span className="text-purple-600">✓</span>
+                            ) : (
+                              <span className="text-gray-400">+</span>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-4 mt-6 pt-4 border-t">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPersonalizeModal(false)
+                      resetForm()
+                      setTempPersonalizeFlows([])
+                    }}
+                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                  >
+                    Create Personalize
                   </button>
                 </div>
               </form>
@@ -2203,6 +2575,237 @@ export default function Sequences() {
                       }
                     }}
                     className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
+                  >
+                    Finish
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Personalize Flow Edit Modal - No delay hours */}
+        {showPersonalizeFlowEditModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[60]">
+            <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-bold text-purple-700">Flow {currentFlowNumber} Message</h3>
+                  <p className="text-sm text-gray-500">This flow will be sent to Contact #{currentFlowNumber}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowPersonalizeFlowEditModal(false)
+                    setIsEditingPersonalizeFlow(false)
+                    resetFlowForm()
+                  }}
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                  {/* Formatting Toolbar */}
+                  <div className="flex items-center gap-1 mb-2 p-2 bg-gray-50 border border-gray-300 rounded-t-lg border-b-0">
+                    <span className="text-xs text-gray-500 mr-2">Format:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const textarea = document.getElementById('personalize-flow-message') as HTMLTextAreaElement
+                        if (textarea) {
+                          const start = textarea.selectionStart
+                          const end = textarea.selectionEnd
+                          const text = flowFormData.message
+                          const selectedText = text.substring(start, end)
+                          const newText = text.substring(0, start) + '*' + selectedText + '*' + text.substring(end)
+                          setFlowFormData({ ...flowFormData, message: newText })
+                          setTimeout(() => {
+                            textarea.focus()
+                            textarea.setSelectionRange(start + 1, end + 1)
+                          }, 0)
+                        }
+                      }}
+                      className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded font-bold hover:bg-gray-100"
+                      title="Bold (*text*)"
+                    >
+                      B
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const textarea = document.getElementById('personalize-flow-message') as HTMLTextAreaElement
+                        if (textarea) {
+                          const start = textarea.selectionStart
+                          const end = textarea.selectionEnd
+                          const text = flowFormData.message
+                          const selectedText = text.substring(start, end)
+                          const newText = text.substring(0, start) + '_' + selectedText + '_' + text.substring(end)
+                          setFlowFormData({ ...flowFormData, message: newText })
+                          setTimeout(() => {
+                            textarea.focus()
+                            textarea.setSelectionRange(start + 1, end + 1)
+                          }, 0)
+                        }
+                      }}
+                      className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded italic hover:bg-gray-100"
+                      title="Italic (_text_)"
+                    >
+                      I
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const textarea = document.getElementById('personalize-flow-message') as HTMLTextAreaElement
+                        if (textarea) {
+                          const start = textarea.selectionStart
+                          const end = textarea.selectionEnd
+                          const text = flowFormData.message
+                          const selectedText = text.substring(start, end)
+                          const newText = text.substring(0, start) + '~' + selectedText + '~' + text.substring(end)
+                          setFlowFormData({ ...flowFormData, message: newText })
+                          setTimeout(() => {
+                            textarea.focus()
+                            textarea.setSelectionRange(start + 1, end + 1)
+                          }, 0)
+                        }
+                      }}
+                      className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded line-through hover:bg-gray-100"
+                      title="Strikethrough (~text~)"
+                    >
+                      S
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const textarea = document.getElementById('personalize-flow-message') as HTMLTextAreaElement
+                        if (textarea) {
+                          const start = textarea.selectionStart
+                          const end = textarea.selectionEnd
+                          const text = flowFormData.message
+                          const selectedText = text.substring(start, end)
+                          const newText = text.substring(0, start) + '```' + selectedText + '```' + text.substring(end)
+                          setFlowFormData({ ...flowFormData, message: newText })
+                          setTimeout(() => {
+                            textarea.focus()
+                            textarea.setSelectionRange(start + 3, end + 3)
+                          }, 0)
+                        }
+                      }}
+                      className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded font-mono text-xs hover:bg-gray-100"
+                      title="Monospace (```text```)"
+                    >
+                      {'</>'}
+                    </button>
+                    <div className="w-px h-6 bg-gray-300 mx-2"></div>
+                    <span className="text-xs text-gray-500 mr-1">Emoji:</span>
+                    {['😊', '😍', '🥰', '😘', '🤩', '😎', '🤗', '🤑', '🤯', '😱', '👍', '👎', '👏', '🙏', '💪', '🤝', '👋', '✌️', '🤞', '👌', '❤️', '💙', '💚', '💛', '🧡', '💜', '💖', '💗', '🔥', '✨', '⭐', '✅', '❌', '⚠️'].map(emoji => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => {
+                          const textarea = document.getElementById('personalize-flow-message') as HTMLTextAreaElement
+                          if (textarea) {
+                            const start = textarea.selectionStart
+                            const text = flowFormData.message
+                            const newText = text.substring(0, start) + emoji + text.substring(start)
+                            setFlowFormData({ ...flowFormData, message: newText })
+                            setTimeout(() => {
+                              textarea.focus()
+                              textarea.setSelectionRange(start + emoji.length, start + emoji.length)
+                            }, 0)
+                          }
+                        }}
+                        className="hover:bg-gray-200 rounded p-0.5 text-base"
+                        title={emoji}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    id="personalize-flow-message"
+                    value={flowFormData.message}
+                    onChange={(e) => setFlowFormData({ ...flowFormData, message: e.target.value })}
+                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-b-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono"
+                    rows={10}
+                    placeholder="Enter your personalized message for this contact..."
+                    required
+                  />
+                </div>
+
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-purple-700 mb-2">Live Preview</h4>
+                  {/* Show selected image preview above message */}
+                  {flowFormData.image_url && (
+                    <div className="mb-3">
+                      <img
+                        src={flowFormData.image_url}
+                        alt="Preview"
+                        className="max-w-full max-h-48 rounded-lg border border-purple-300 object-contain"
+                      />
+                    </div>
+                  )}
+                  <div
+                    className="text-sm text-gray-800 whitespace-pre-wrap min-h-[100px] bg-white p-3 rounded border border-purple-200"
+                    dangerouslySetInnerHTML={{
+                      __html: flowFormData.message
+                        ? flowFormData.message
+                            .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
+                            .replace(/_([^_]+)_/g, '<em>$1</em>')
+                            .replace(/~([^~]+)~/g, '<del>$1</del>')
+                            .replace(/```([^`]+)```/g, '<code class="bg-gray-200 px-1 rounded font-mono text-sm">$1</code>')
+                            .replace(/\n/g, '<br/>')
+                        : '<span class="text-gray-400">Your formatted message will appear here...</span>'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Image (Optional)</label>
+                  <select
+                    value={flowFormData.image_url}
+                    onChange={(e) => setFlowFormData({ ...flowFormData, image_url: e.target.value })}
+                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="">Select Image from Bank</option>
+                    {bankImages.map((image) => (
+                      <option key={image.id} value={image.image_url}>
+                        {image.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">Select an image from your bank images</p>
+                </div>
+
+                <div className="flex gap-4 mt-6 pt-4 border-t">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPersonalizeFlowEditModal(false)
+                      setIsEditingPersonalizeFlow(false)
+                      resetFlowForm()
+                    }}
+                    className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!flowFormData.message) {
+                        Swal.fire({
+                          icon: 'warning',
+                          title: 'Missing Required Fields',
+                          text: 'Please fill in the Message field',
+                        })
+                        return
+                      }
+                      handleSavePersonalizeFlow()
+                    }}
+                    className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
                   >
                     Finish
                   </button>

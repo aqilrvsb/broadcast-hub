@@ -255,12 +255,16 @@ async function handleBroadcastLock(request: Request): Promise<Response> {
     }
 
     console.log(`✅ Sequence found: ${sequence.name}`);
+    console.log(`   - Type: ${sequence.sequence_type || 'broadcast'}`);
     console.log(`   - Device ID: ${sequence.device_id}`);
     console.log(`   - Category ID: ${sequence.category_id}`);
     console.log(`   - Schedule Date: ${sequence.schedule_date}`);
     console.log(`   - Schedule Time: ${sequence.schedule_time}`);
     console.log(`   - Min Delay: ${sequence.min_delay}s`);
     console.log(`   - Max Delay: ${sequence.max_delay}s`);
+
+    // Check if this is a personalize type sequence
+    const isPersonalize = sequence.sequence_type === 'personalize';
 
     // Step 2: Get device details (for instance)
     const { data: device, error: deviceError } = await supabaseAdmin
@@ -372,42 +376,35 @@ async function handleBroadcastLock(request: Request): Promise<Response> {
 
       console.log(`   ✅ Enrollment created: ${enrollment.id}`);
 
-      // Schedule all flow messages with cumulative delays
-      // delay_hours = how long to wait BEFORE sending THIS flow
-      // Flow 1 with delay_hours=1: base time + 1 hour
-      // Flow 2 with delay_hours=2: Flow 1 time + 2 hours
-      let cumulativeDelayHours = 0;
+      // PERSONALIZE TYPE: Each lead gets ONE flow (cycling through flows)
+      // BROADCAST TYPE: Each lead gets ALL flows with delay_hours between them
 
-      for (const flow of flows) {
-        // Add THIS flow's delay_hours first (delay before sending)
-        cumulativeDelayHours += flow.delay_hours;
+      if (isPersonalize) {
+        // Personalize: Assign one flow to this lead using modulo for cycling
+        // Lead 0 -> Flow 0, Lead 1 -> Flow 1, ... Lead N -> Flow (N % flows.length)
+        const flowIndex = leadIndex % flows.length;
+        const flow = flows[flowIndex];
 
-        // Calculate scheduled time for THIS flow:
-        // Base time (UTC) + lead gap (seconds) + cumulative delay hours
+        console.log(`   🎯 Personalize mode: Lead ${leadIndex + 1} gets Flow ${flow.flow_number}`);
+
+        // Calculate scheduled time (no delay_hours for personalize, just lead gap)
         const scheduledTimeUTC = new Date(
           baseTimeUTC.getTime() +
-          (cumulativeLeadGapSeconds * 1000) +
-          (cumulativeDelayHours * 60 * 60 * 1000)
+          (cumulativeLeadGapSeconds * 1000)
         );
 
-        // WhatsApp Center uses Indonesia timezone (UTC+7)
-        // Database stores Malaysia timezone (UTC+8)
-        // WhatsApp Center time = actual delivery time - 1 hour
         const whacenterTimeIndonesia = new Date(scheduledTimeUTC.getTime() + (7 * 60 * 60 * 1000));
         const actualDeliveryTimeMalaysia = new Date(scheduledTimeUTC.getTime() + (8 * 60 * 60 * 1000));
 
-        // Format for WhatsApp Center API: YYYY-MM-DD HH:MM:SS (Indonesia time)
         const scheduleString = whacenterTimeIndonesia.toISOString()
           .replace('T', ' ')
           .substring(0, 19);
 
-        console.log(`   📅 Flow ${flow.flow_number}: WhatsApp=${scheduleString} (UTC+7), DB=${actualDeliveryTimeMalaysia.toISOString()} (UTC+8), cumulative delay: ${cumulativeDelayHours}h`);
+        console.log(`   📅 Flow ${flow.flow_number}: WhatsApp=${scheduleString} (UTC+7), DB=${actualDeliveryTimeMalaysia.toISOString()} (UTC+8)`);
 
         try {
-          // Apply anti-ban message randomization with prospect name
           const randomizedMessage = randomizeMessage(flow.message, lead.prospect_name || '');
 
-          // Send scheduled message to WhatsApp Center API
           const sendUrl = `${WHACENTER_API_URL}/api/send`;
           const formData = new URLSearchParams();
           formData.append('device_id', device.instance);
@@ -415,7 +412,6 @@ async function handleBroadcastLock(request: Request): Promise<Response> {
           formData.append('message', randomizedMessage);
           formData.append('schedule', scheduleString);
 
-          // Add image if present
           if (flow.image_url) {
             formData.append('file', flow.image_url);
           }
@@ -430,40 +426,132 @@ async function handleBroadcastLock(request: Request): Promise<Response> {
             const errorText = await sendResponse.text();
             console.error(`   ❌ WhatsApp API error: ${errorText}`);
             totalFailed++;
-            continue;
-          }
-
-          const responseData = await sendResponse.json();
-          const whacenterMessageId = responseData?.data?.id || responseData?.id || responseData?.message_id || null;
-
-          console.log(`   ✅ Scheduled via API, ID: ${whacenterMessageId || 'unknown'}`);
-
-          // Save to sequence_scheduled_messages table (Malaysia timezone for database)
-          // Store randomized message that was actually sent
-          const { error: saveError } = await supabaseAdmin
-            .from("sequence_scheduled_messages")
-            .insert({
-              enrollment_id: enrollment.id,
-              sequence_id: sequence.id,
-              flow_number: flow.flow_number,
-              prospect_num: lead.prospect_num,
-              device_id: sequence.device_id,
-              whacenter_message_id: String(whacenterMessageId),
-              message: randomizedMessage, // Store the randomized message that was sent
-              image_url: flow.image_url,
-              scheduled_time: actualDeliveryTimeMalaysia.toISOString(),
-              status: "scheduled",
-            });
-
-          if (saveError) {
-            console.error(`   ❌ Database save error:`, saveError);
           } else {
-            totalScheduled++;
-          }
+            const responseData = await sendResponse.json();
+            const whacenterMessageId = responseData?.data?.id || responseData?.id || responseData?.message_id || null;
 
+            console.log(`   ✅ Scheduled via API, ID: ${whacenterMessageId || 'unknown'}`);
+
+            const { error: saveError } = await supabaseAdmin
+              .from("sequence_scheduled_messages")
+              .insert({
+                enrollment_id: enrollment.id,
+                sequence_id: sequence.id,
+                flow_number: flow.flow_number,
+                prospect_num: lead.prospect_num,
+                device_id: sequence.device_id,
+                whacenter_message_id: String(whacenterMessageId),
+                message: randomizedMessage,
+                image_url: flow.image_url,
+                scheduled_time: actualDeliveryTimeMalaysia.toISOString(),
+                status: "scheduled",
+              });
+
+            if (saveError) {
+              console.error(`   ❌ Database save error:`, saveError);
+            } else {
+              totalScheduled++;
+            }
+          }
         } catch (scheduleError) {
           console.error(`   ❌ Error scheduling flow ${flow.flow_number}:`, scheduleError);
           totalFailed++;
+        }
+
+      } else {
+        // BROADCAST TYPE: Schedule all flow messages with cumulative delays
+        // delay_hours = how long to wait BEFORE sending THIS flow
+        // Flow 1 with delay_hours=1: base time + 1 hour
+        // Flow 2 with delay_hours=2: Flow 1 time + 2 hours
+        let cumulativeDelayHours = 0;
+
+        for (const flow of flows) {
+          // Add THIS flow's delay_hours first (delay before sending)
+          cumulativeDelayHours += flow.delay_hours;
+
+          // Calculate scheduled time for THIS flow:
+          // Base time (UTC) + lead gap (seconds) + cumulative delay hours
+          const scheduledTimeUTC = new Date(
+            baseTimeUTC.getTime() +
+            (cumulativeLeadGapSeconds * 1000) +
+            (cumulativeDelayHours * 60 * 60 * 1000)
+          );
+
+          // WhatsApp Center uses Indonesia timezone (UTC+7)
+          // Database stores Malaysia timezone (UTC+8)
+          // WhatsApp Center time = actual delivery time - 1 hour
+          const whacenterTimeIndonesia = new Date(scheduledTimeUTC.getTime() + (7 * 60 * 60 * 1000));
+          const actualDeliveryTimeMalaysia = new Date(scheduledTimeUTC.getTime() + (8 * 60 * 60 * 1000));
+
+          // Format for WhatsApp Center API: YYYY-MM-DD HH:MM:SS (Indonesia time)
+          const scheduleString = whacenterTimeIndonesia.toISOString()
+            .replace('T', ' ')
+            .substring(0, 19);
+
+          console.log(`   📅 Flow ${flow.flow_number}: WhatsApp=${scheduleString} (UTC+7), DB=${actualDeliveryTimeMalaysia.toISOString()} (UTC+8), cumulative delay: ${cumulativeDelayHours}h`);
+
+          try {
+            // Apply anti-ban message randomization with prospect name
+            const randomizedMessage = randomizeMessage(flow.message, lead.prospect_name || '');
+
+            // Send scheduled message to WhatsApp Center API
+            const sendUrl = `${WHACENTER_API_URL}/api/send`;
+            const formData = new URLSearchParams();
+            formData.append('device_id', device.instance);
+            formData.append('number', lead.prospect_num);
+            formData.append('message', randomizedMessage);
+            formData.append('schedule', scheduleString);
+
+            // Add image if present
+            if (flow.image_url) {
+              formData.append('file', flow.image_url);
+            }
+
+            const sendResponse = await fetch(sendUrl, {
+              method: 'POST',
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: formData.toString(),
+            });
+
+            if (!sendResponse.ok) {
+              const errorText = await sendResponse.text();
+              console.error(`   ❌ WhatsApp API error: ${errorText}`);
+              totalFailed++;
+              continue;
+            }
+
+            const responseData = await sendResponse.json();
+            const whacenterMessageId = responseData?.data?.id || responseData?.id || responseData?.message_id || null;
+
+            console.log(`   ✅ Scheduled via API, ID: ${whacenterMessageId || 'unknown'}`);
+
+            // Save to sequence_scheduled_messages table (Malaysia timezone for database)
+            // Store randomized message that was actually sent
+            const { error: saveError } = await supabaseAdmin
+              .from("sequence_scheduled_messages")
+              .insert({
+                enrollment_id: enrollment.id,
+                sequence_id: sequence.id,
+                flow_number: flow.flow_number,
+                prospect_num: lead.prospect_num,
+                device_id: sequence.device_id,
+                whacenter_message_id: String(whacenterMessageId),
+                message: randomizedMessage, // Store the randomized message that was sent
+                image_url: flow.image_url,
+                scheduled_time: actualDeliveryTimeMalaysia.toISOString(),
+                status: "scheduled",
+              });
+
+            if (saveError) {
+              console.error(`   ❌ Database save error:`, saveError);
+            } else {
+              totalScheduled++;
+            }
+
+          } catch (scheduleError) {
+            console.error(`   ❌ Error scheduling flow ${flow.flow_number}:`, scheduleError);
+            totalFailed++;
+          }
         }
       }
     }
