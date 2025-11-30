@@ -2369,11 +2369,11 @@ export default function Sequences() {
 
         {/* Message Preview Modal */}
         {showMessagePreviewModal && previewMessageData && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 z-[80]">
-            <div className="bg-white rounded-xl w-full max-w-4xl shadow-xl max-h-[95vh] flex flex-col">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[80]">
+            <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl max-h-[90vh] flex flex-col">
               {/* Header */}
-              <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-3 rounded-t-xl flex items-center justify-between flex-shrink-0">
-                <h3 className="text-lg font-bold">Flow {previewMessageData.flowNumber} Message</h3>
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 rounded-t-xl flex items-center justify-between flex-shrink-0">
+                <h3 className="text-xl font-bold">Flow {previewMessageData.flowNumber} Message</h3>
                 <button
                   onClick={() => {
                     setShowMessagePreviewModal(false)
@@ -2386,51 +2386,49 @@ export default function Sequences() {
               </div>
 
               {/* Content - Scrollable */}
-              <div className="p-4 flex-1 overflow-y-auto">
-                <div className="flex gap-4">
-                  {/* Image Preview - Left side, smaller */}
-                  {previewMessageData.imageUrl && (
-                    <div className="flex-shrink-0">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Image</label>
-                      <img
-                        src={previewMessageData.imageUrl}
-                        alt="Flow image"
-                        className="w-32 h-32 rounded-lg border border-gray-300 object-cover"
-                      />
-                    </div>
-                  )}
-
-                  {/* Message with formatting - Right side, takes remaining space */}
-                  <div className="flex-1 min-w-0">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Message</label>
-                    <div
-                      className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-wrap max-h-[60vh] overflow-y-auto"
-                      dangerouslySetInnerHTML={{
-                        __html: previewMessageData.message
-                          // Bold: *text*
-                          .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
-                          // Italic: _text_
-                          .replace(/_([^_]+)_/g, '<em>$1</em>')
-                          // Strikethrough: ~text~
-                          .replace(/~([^~]+)~/g, '<del>$1</del>')
-                          // Monospace: ```text```
-                          .replace(/```([^`]+)```/g, '<code class="bg-gray-200 px-1 rounded font-mono text-xs">$1</code>')
-                          // Preserve line breaks
-                          .replace(/\n/g, '<br/>')
-                      }}
+              <div className="p-6 flex-1 overflow-y-auto">
+                {/* Image Preview - Above message */}
+                {previewMessageData.imageUrl && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Image</label>
+                    <img
+                      src={previewMessageData.imageUrl}
+                      alt="Flow image"
+                      className="max-w-full max-h-48 rounded-lg border border-gray-300 object-contain"
                     />
                   </div>
+                )}
+
+                {/* Message with formatting - Full width, scrollable */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                  <div
+                    className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-800 whitespace-pre-wrap"
+                    dangerouslySetInnerHTML={{
+                      __html: previewMessageData.message
+                        // Bold: *text*
+                        .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
+                        // Italic: _text_
+                        .replace(/_([^_]+)_/g, '<em>$1</em>')
+                        // Strikethrough: ~text~
+                        .replace(/~([^~]+)~/g, '<del>$1</del>')
+                        // Monospace: ```text```
+                        .replace(/```([^`]+)```/g, '<code class="bg-gray-200 px-1 rounded font-mono text-sm">$1</code>')
+                        // Preserve line breaks
+                        .replace(/\n/g, '<br/>')
+                    }}
+                  />
                 </div>
               </div>
 
               {/* Footer - Close Button */}
-              <div className="p-3 border-t flex justify-end flex-shrink-0">
+              <div className="p-4 border-t flex justify-end flex-shrink-0">
                 <button
                   onClick={() => {
                     setShowMessagePreviewModal(false)
                     setPreviewMessageData(null)
                   }}
-                  className="px-4 py-1.5 bg-gray-800 hover:bg-gray-900 text-white rounded-lg text-sm font-medium transition-colors"
+                  className="px-6 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-lg font-medium transition-colors"
                 >
                   Close
                 </button>
