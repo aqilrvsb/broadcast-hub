@@ -52,6 +52,7 @@ type BroadcastSummary = {
     step: number
     step_name: string
     image_url: string | null
+    message?: string
     should_send: number
     sent: number
     sent_percentage: string
@@ -668,23 +669,24 @@ export default function Sequences() {
         .single()
 
       if (device?.instance && recipient.whacenter_message_id) {
-        // Delete from WhatsApp Center
-        const WHACENTER_API_URL = 'https://app.whacenter.com/api/deleteMessage'
-        const formData = new FormData()
-        formData.append('device_id', device.instance)
-        formData.append('id', recipient.whacenter_message_id)
+        // Delete from WhatsApp Center using GET with query params
+        const WHACENTER_API_URL = `https://api.whacenter.com/api/deleteMessage?device_id=${encodeURIComponent(device.instance)}&id=${encodeURIComponent(recipient.whacenter_message_id)}`
 
         await fetch(WHACENTER_API_URL, {
           method: 'GET',
-          body: formData,
         }).catch(err => console.warn('WhatsApp Center delete error:', err))
       }
 
-      // Update status to cancelled in database
-      await supabase
+      // Delete from database (not just update status)
+      const { error: deleteError } = await supabase
         .from('sequence_scheduled_messages')
-        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .delete()
         .eq('id', recipient.id)
+
+      if (deleteError) {
+        console.error('Database delete error:', deleteError)
+        throw deleteError
+      }
 
       // Remove from local state
       setRecipientsData(prev => prev.filter(r => r.id !== recipient.id))
@@ -1831,6 +1833,7 @@ export default function Sequences() {
                             <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase">Step</th>
                             <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase">Step Name</th>
                             <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase">Image</th>
+                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase">Message</th>
                             <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase">Should Send</th>
                             <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase">Sent</th>
                             <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase">Failed</th>
@@ -1855,6 +1858,13 @@ export default function Sequences() {
                                 ) : (
                                   <span className="text-gray-400">-</span>
                                 )}
+                              </td>
+                              <td className="px-3 py-3 text-sm text-gray-700 max-w-[200px]">
+                                {(() => {
+                                  const flow = sequenceFlows.find(f => f.flow_number === step.step)
+                                  const message = flow?.message || '-'
+                                  return <p className="line-clamp-2" title={message}>{message}</p>
+                                })()}
                               </td>
                               <td className="px-3 py-3 text-center">
                                 <button
