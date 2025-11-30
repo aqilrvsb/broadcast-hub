@@ -526,6 +526,15 @@ export default function Sequences() {
       setShowSummaryModal(true)
       setCurrentSequence(sequence)
 
+      // Load sequence flows for full message display
+      const { data: flowsData } = await supabase
+        .from('sequence_flows')
+        .select('*')
+        .eq('sequence_id', sequence.id)
+        .order('flow_number', { ascending: true })
+
+      setSequenceFlows(flowsData || [])
+
       const DENO_API_URL = import.meta.env.VITE_DENO_API_URL || 'https://broadcast-hub.deno.dev'
       const response = await fetch(`${DENO_API_URL}/api/broadcast/summary?sequence_id=${sequence.id}`)
       const data = await response.json()
@@ -539,6 +548,7 @@ export default function Sequences() {
       console.error('Error fetching summary:', error)
       setShowSummaryModal(false)
       setCurrentSequence(null)
+      setSequenceFlows([])
       await Swal.fire({
         icon: 'error',
         title: 'Failed to Load Summary',
@@ -1751,6 +1761,7 @@ export default function Sequences() {
                       setShowSummaryModal(false)
                       setSummaryData(null)
                       setCurrentSequence(null)
+                      setSequenceFlows([])
                     }}
                     className="text-white/80 hover:text-white text-3xl"
                   >
@@ -1942,6 +1953,7 @@ export default function Sequences() {
                     setShowSummaryModal(false)
                     setSummaryData(null)
                     setCurrentSequence(null)
+                    setSequenceFlows([])
                   }}
                   className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
                 >
