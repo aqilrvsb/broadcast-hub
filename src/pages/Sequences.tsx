@@ -764,6 +764,35 @@ export default function Sequences() {
           return
         }
 
+        // Check if device is connected
+        const { data: deviceStatus, error: deviceError } = await supabase
+          .from('device_setting')
+          .select('status, device_id')
+          .eq('id', sequence.device_id)
+          .single()
+
+        if (deviceError || !deviceStatus) {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Device Not Found',
+            text: 'Could not verify device status. Please try again.',
+          })
+          return
+        }
+
+        if (deviceStatus.status !== 'Connected') {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Device Not Connected',
+            html: `
+              <p>The device <strong>${deviceStatus.device_id}</strong> is not connected.</p>
+              <p class="mt-2">Current status: <span class="text-red-600 font-bold">${deviceStatus.status || 'UNKNOWN'}</span></p>
+              <p class="mt-3 text-gray-600">Please connect your WhatsApp device first before locking the broadcast.</p>
+            `,
+          })
+          return
+        }
+
         // Validate schedule date is at least tomorrow
         const today = new Date()
         today.setHours(0, 0, 0, 0)
