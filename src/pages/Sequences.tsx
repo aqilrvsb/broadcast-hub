@@ -535,6 +535,7 @@ export default function Sequences() {
     } catch (error: unknown) {
       console.error('Error fetching summary:', error)
       setShowSummaryModal(false)
+      setCurrentSequence(null)
       await Swal.fire({
         icon: 'error',
         title: 'Failed to Load Summary',
@@ -1146,6 +1147,7 @@ export default function Sequences() {
             onClick={() => {
               setShowCreateModal(true)
               setTempFlows([])
+              setCurrentSequence(null) // Clear to ensure Create mode, not Edit mode
             }}
             className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center gap-2"
           >
@@ -1744,6 +1746,7 @@ export default function Sequences() {
                     onClick={() => {
                       setShowSummaryModal(false)
                       setSummaryData(null)
+                      setCurrentSequence(null)
                     }}
                     className="text-white/80 hover:text-white text-3xl"
                   >
@@ -1920,6 +1923,7 @@ export default function Sequences() {
                   onClick={() => {
                     setShowSummaryModal(false)
                     setSummaryData(null)
+                    setCurrentSequence(null)
                   }}
                   className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
                 >
