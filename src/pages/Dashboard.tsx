@@ -49,10 +49,9 @@ export default function Dashboard() {
   const [endDate, setEndDate] = useState('')
   const [devices, setDevices] = useState<{ id: string; device_id: string }[]>([])
 
-  // Chart refs and state
+  // Chart refs
   const dailyTrendsChartRef = useRef<HTMLCanvasElement>(null)
   const dailyTrendsChartInstance = useRef<Chart | null>(null)
-  const [dailySentData, setDailySentData] = useState<{ date: string; count: number }[]>([])
 
   useEffect(() => {
     setDefaultDates()
@@ -91,7 +90,6 @@ export default function Dashboard() {
       }
 
       const { data: devicesData } = await deviceSettingsQuery
-      const userDeviceIds = devicesData?.map(d => d.id).filter(Boolean) || []
 
       // Set devices for dropdown
       setDevices(devicesData || [])
@@ -182,7 +180,6 @@ export default function Dashboard() {
           dailyTrendsChartInstance.current.destroy()
           dailyTrendsChartInstance.current = null
         }
-        setDailySentData([])
       }
 
       setLoading(false)
