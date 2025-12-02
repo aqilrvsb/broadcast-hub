@@ -263,7 +263,7 @@ export default function DeviceSettings() {
     }
 
     // Check if user provided an existing instance
-    const hasExistingInstance = formData.instance && formData.instance.trim() !== ''
+    const hasExistingInstance = !!(formData.instance && formData.instance.trim() !== '')
 
     try {
       // Check device limit before adding
