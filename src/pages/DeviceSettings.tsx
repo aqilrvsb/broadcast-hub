@@ -166,12 +166,14 @@ export default function DeviceSettings() {
     setDeviceStatuses(statuses)
   }
 
-  // Generate auto Device ID: RV + ID Staff + (count)
-  const generateDeviceId = () => {
+  // Generate auto Device ID: EV/RV + ID Staff + (count)
+  // EV = Existing (user provides instance), RV = Register/New (create via API)
+  const generateDeviceId = (hasInstance: boolean = false) => {
     if (!user?.email) return ''
     const idStaff = user.email // email field stores ID Staff
     const nextNumber = devices.length + 1
-    return `RV${idStaff}(${nextNumber})`
+    const prefix = hasInstance ? 'EV' : 'RV'
+    return `${prefix}${idStaff}(${nextNumber})`
   }
 
   // Check phone number: 10-13 digits, unique across all devices
@@ -260,6 +262,9 @@ export default function DeviceSettings() {
       }
     }
 
+    // Check if user provided an existing instance
+    const hasExistingInstance = formData.instance && formData.instance.trim() !== ''
+
     try {
       // Check device limit before adding
       const { data: existingDevices, error: countError } = await supabase
@@ -286,53 +291,26 @@ export default function DeviceSettings() {
       setIsCheckingStatus(true)
       setLoadingMessage('Creating device...')
 
-      // Auto-generate Device ID
-      const autoDeviceId = generateDeviceId()
-
+      // Auto-generate Device ID with prefix based on whether instance exists
+      // EV = Existing (user provides instance), RV = Register/New (create via API)
+      const autoDeviceId = generateDeviceId(hasExistingInstance)
       const deviceId = crypto.randomUUID()
-      const { error } = await supabase
-        .from('device_setting')
-        .insert({
-          id: deviceId,
-          user_id: user.id,
-          device_id: autoDeviceId,
-          phone_number: formData.phone_number,
-          provider: 'waha',
-          api_key_option: 'openai/gpt-4.1',
-        })
 
-      if (error) throw error
-
-      // Add device to WhatsApp Center (without webhook)
-      setLoadingMessage('Adding device to WhatsApp Center...')
-
-      const apiBase = '/api/whacenter'
-      const deviceName = autoDeviceId
-      const phoneNumber = formData.phone_number || ''
-
-      // Add device to WhatsApp Center
-      const addDeviceResponse = await fetch(
-        `${apiBase}?endpoint=addDevice&name=${encodeURIComponent(deviceName)}&number=${encodeURIComponent(phoneNumber)}`,
-        {
-          method: 'GET'
-        }
-      )
-
-      const addDeviceData = await addDeviceResponse.json()
-
-      console.log('Add device response:', addDeviceData)
-
-      if (addDeviceData.success && addDeviceData.data && addDeviceData.data.device && addDeviceData.data.device.device_id) {
-        const whatsappCenterDeviceId = addDeviceData.data.device.device_id
-
-        // Update device with instance (device_id) - no webhook
-        await supabase
+      if (hasExistingInstance) {
+        // USER PROVIDED INSTANCE - Skip API calls, save directly
+        const { error } = await supabase
           .from('device_setting')
-          .update({
-            instance: whatsappCenterDeviceId,
-            updated_at: new Date().toISOString(),
+          .insert({
+            id: deviceId,
+            user_id: user.id,
+            device_id: autoDeviceId,
+            instance: formData.instance.trim(), // Save the user-provided instance
+            phone_number: formData.phone_number,
+            provider: 'waha',
+            api_key_option: 'openai/gpt-4.1',
           })
-          .eq('id', deviceId)
+
+        if (error) throw error
 
         setIsCheckingStatus(false)
 
@@ -350,15 +328,85 @@ export default function DeviceSettings() {
 
         await Swal.fire({
           icon: 'success',
-          title: 'Device Created Successfully!',
-          text: 'Device added to WhatsApp Center.',
+          title: 'Device Added Successfully!',
+          text: 'Existing device instance has been linked.',
           timer: 3000,
           showConfirmButton: false,
         })
 
         loadDevices()
       } else {
-        throw new Error(`Failed to add device to WhatsApp Center: ${JSON.stringify(addDeviceData)}`)
+        // NO INSTANCE - Create via WhatsApp Center API
+        const { error } = await supabase
+          .from('device_setting')
+          .insert({
+            id: deviceId,
+            user_id: user.id,
+            device_id: autoDeviceId,
+            phone_number: formData.phone_number,
+            provider: 'waha',
+            api_key_option: 'openai/gpt-4.1',
+          })
+
+        if (error) throw error
+
+        // Add device to WhatsApp Center (without webhook)
+        setLoadingMessage('Adding device to WhatsApp Center...')
+
+        const apiBase = '/api/whacenter'
+        const deviceName = autoDeviceId
+        const phoneNumber = formData.phone_number || ''
+
+        // Add device to WhatsApp Center
+        const addDeviceResponse = await fetch(
+          `${apiBase}?endpoint=addDevice&name=${encodeURIComponent(deviceName)}&number=${encodeURIComponent(phoneNumber)}`,
+          {
+            method: 'GET'
+          }
+        )
+
+        const addDeviceData = await addDeviceResponse.json()
+
+        console.log('Add device response:', addDeviceData)
+
+        if (addDeviceData.success && addDeviceData.data && addDeviceData.data.device && addDeviceData.data.device.device_id) {
+          const whatsappCenterDeviceId = addDeviceData.data.device.device_id
+
+          // Update device with instance (device_id) - no webhook
+          await supabase
+            .from('device_setting')
+            .update({
+              instance: whatsappCenterDeviceId,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', deviceId)
+
+          setIsCheckingStatus(false)
+
+          // Reset form and close modal
+          setFormData({
+            device_id: '',
+            instance: '',
+            webhook_id: '',
+            provider: 'waha',
+            api_key_option: 'openai/gpt-4.1',
+            api_key: '',
+            phone_number: '',
+          })
+          setShowAddModal(false)
+
+          await Swal.fire({
+            icon: 'success',
+            title: 'Device Created Successfully!',
+            text: 'Device added to WhatsApp Center.',
+            timer: 3000,
+            showConfirmButton: false,
+          })
+
+          loadDevices()
+        } else {
+          throw new Error(`Failed to add device to WhatsApp Center: ${JSON.stringify(addDeviceData)}`)
+        }
       }
     } catch (error: any) {
       console.error('Error adding device:', error)
@@ -816,17 +864,42 @@ export default function DeviceSettings() {
               <h3 className="text-2xl font-bold text-gray-900 mb-6">Add New Device</h3>
 
               <form onSubmit={handleAddDevice} className="space-y-4">
+                {/* Instance Input - Optional for existing devices */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Instance ID (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.instance}
+                    onChange={(e) => setFormData({ ...formData, instance: e.target.value })}
+                    placeholder="e.g., 58f97e03-2951-4f6b-850a-4f1dd7d4021a"
+                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {formData.instance ? (
+                      <span className="text-purple-600">Using existing instance - will skip WhatsApp Center API</span>
+                    ) : (
+                      'Leave empty to create new device via WhatsApp Center API'
+                    )}
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Device ID (Auto-generated)</label>
                     <input
                       type="text"
-                      value={generateDeviceId()}
+                      value={generateDeviceId(!!formData.instance)}
                       className="w-full bg-gray-100 border border-gray-300 text-gray-600 rounded-lg px-4 py-2 cursor-not-allowed"
                       readOnly
                       disabled
                     />
-                    <p className="text-xs text-gray-500 mt-1">Format: RV + ID Staff + (count)</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Format: {formData.instance ? <span className="text-purple-600 font-medium">EV</span> : <span className="text-orange-600 font-medium">RV</span>} + ID Staff + (count)
+                      <br />
+                      <span className="text-purple-600">EV</span> = Existing, <span className="text-orange-600">RV</span> = Register New
+                    </p>
                   </div>
 
                   <div>
