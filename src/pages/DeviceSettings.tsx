@@ -704,9 +704,18 @@ export default function DeviceSettings() {
     const result = await Swal.fire({
       icon: 'warning',
       title: 'Delete Device?',
-      text: 'Are you sure you want to delete this device?',
+      html: `
+        <p>Are you sure you want to delete this device?</p>
+        <p class="text-red-600 font-semibold mt-2">This will also delete:</p>
+        <ul class="text-left text-sm mt-2 text-gray-600">
+          <li>• All contact categories</li>
+          <li>• All leads/contacts</li>
+          <li>• All broadcasts & personalizes</li>
+          <li>• All scheduled messages</li>
+        </ul>
+      `,
       showCancelButton: true,
-      confirmButtonText: 'Yes, delete it',
+      confirmButtonText: 'Yes, delete all',
       cancelButtonText: 'Cancel',
       confirmButtonColor: '#ef4444',
     })
@@ -714,6 +723,85 @@ export default function DeviceSettings() {
     if (!result.isConfirmed) return
 
     try {
+      // Show loading
+      Swal.fire({
+        title: 'Deleting...',
+        text: 'Please wait while we delete the device and all related data.',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading()
+        },
+      })
+
+      // 1. Get all sequences for this device
+      const { data: sequences } = await supabase
+        .from('sequences')
+        .select('id')
+        .eq('device_id', id)
+
+      const sequenceIds = sequences?.map(s => s.id) || []
+
+      if (sequenceIds.length > 0) {
+        // 2. Delete sequence_scheduled_messages (depends on sequences)
+        await supabase
+          .from('sequence_scheduled_messages')
+          .delete()
+          .in('sequence_id', sequenceIds)
+
+        // 3. Delete sequence_enrollments (depends on sequences)
+        await supabase
+          .from('sequence_enrollments')
+          .delete()
+          .in('sequence_id', sequenceIds)
+
+        // 4. Delete sequence_flows (depends on sequences)
+        await supabase
+          .from('sequence_flows')
+          .delete()
+          .in('sequence_id', sequenceIds)
+
+        // 5. Delete sequences
+        await supabase
+          .from('sequences')
+          .delete()
+          .eq('device_id', id)
+      }
+
+      // 6. Get all contact categories for this device
+      const { data: categories } = await supabase
+        .from('contact_categories')
+        .select('id')
+        .eq('device_id', id)
+
+      const categoryIds = categories?.map(c => c.id) || []
+
+      if (categoryIds.length > 0) {
+        // 7. Delete leads (depends on categories)
+        await supabase
+          .from('leads')
+          .delete()
+          .in('category_id', categoryIds)
+
+        // 8. Delete contact_categories
+        await supabase
+          .from('contact_categories')
+          .delete()
+          .eq('device_id', id)
+      }
+
+      // 9. Delete prompts for this device
+      await supabase
+        .from('prompts')
+        .delete()
+        .eq('device_id', id)
+
+      // 10. Delete chatbot_flows for this device
+      await supabase
+        .from('chatbot_flows')
+        .delete()
+        .eq('id_device', id)
+
+      // 11. Finally delete the device itself
       const { error } = await supabase.from('device_setting').delete().eq('id', id)
 
       if (error) throw error
@@ -721,7 +809,7 @@ export default function DeviceSettings() {
       await Swal.fire({
         icon: 'success',
         title: 'Deleted!',
-        text: 'Device has been deleted successfully.',
+        text: 'Device and all related data have been deleted successfully.',
         timer: 2000,
         showConfirmButton: false,
       })
