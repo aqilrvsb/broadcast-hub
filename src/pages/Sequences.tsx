@@ -124,6 +124,12 @@ export default function Sequences() {
   const [tempFlows, setTempFlows] = useState<SequenceFlow[]>([]) // For create modal
   const [tempPersonalizeFlows, setTempPersonalizeFlows] = useState<SequenceFlow[]>([]) // For personalize modal
   const [showMessagePreviewModal, setShowMessagePreviewModal] = useState(false)
+
+  // Copy Flow states
+  const [copyFlowIdStaff, setCopyFlowIdStaff] = useState('')
+  const [copyFlowSequences, setCopyFlowSequences] = useState<Sequence[]>([])
+  const [copyFlowSelectedId, setCopyFlowSelectedId] = useState('')
+  const [copyFlowLoading, setCopyFlowLoading] = useState(false)
   const [previewMessageData, setPreviewMessageData] = useState<{ flowNumber: number; message: string; imageUrl: string | null } | null>(null)
 
   // Filter states
@@ -1036,6 +1042,116 @@ export default function Sequences() {
     return tempPersonalizeFlows.some(f => f.flow_number === flowNumber && f.message)
   }
 
+  // Copy Flow functions
+  const handleSearchSequencesByEmail = async (email: string, sequenceType: 'broadcast' | 'personalize') => {
+    if (!email.trim()) {
+      setCopyFlowSequences([])
+      return
+    }
+
+    setCopyFlowLoading(true)
+    try {
+      // First, find the user by email
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email.trim())
+        .single()
+
+      if (userError || !userData) {
+        setCopyFlowSequences([])
+        setCopyFlowLoading(false)
+        return
+      }
+
+      // Fetch sequences for this user with the specified type
+      const { data: sequencesData, error: sequencesError } = await supabase
+        .from('sequences')
+        .select('*')
+        .eq('user_id', userData.id)
+        .eq('sequence_type', sequenceType)
+        .order('created_at', { ascending: false })
+
+      if (sequencesError) throw sequencesError
+
+      setCopyFlowSequences(sequencesData || [])
+    } catch (error) {
+      console.error('Error searching sequences:', error)
+      setCopyFlowSequences([])
+    } finally {
+      setCopyFlowLoading(false)
+    }
+  }
+
+  const handleCopyFlows = async (sequenceId: string, targetType: 'broadcast' | 'personalize') => {
+    if (!sequenceId) return
+
+    setCopyFlowLoading(true)
+    try {
+      // Fetch flows from the selected sequence
+      const { data: flowsData, error } = await supabase
+        .from('sequence_flows')
+        .select('*')
+        .eq('sequence_id', sequenceId)
+        .order('flow_number', { ascending: true })
+
+      if (error) throw error
+
+      if (!flowsData || flowsData.length === 0) {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'No Flows Found',
+          text: 'The selected sequence has no flows to copy.',
+        })
+        return
+      }
+
+      // Map flows to temp flows format
+      const copiedFlows: SequenceFlow[] = flowsData.map(flow => ({
+        id: `temp-${flow.flow_number}`,
+        sequence_id: '',
+        flow_number: flow.flow_number,
+        step_trigger: flow.step_trigger || '',
+        next_trigger: flow.next_trigger || null,
+        delay_hours: targetType === 'personalize' ? 0 : flow.delay_hours,
+        message: flow.message,
+        image_url: flow.image_url,
+        is_end: flow.is_end,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }))
+
+      // Set to appropriate temp flows based on target type
+      if (targetType === 'broadcast') {
+        setTempFlows(copiedFlows)
+      } else {
+        setTempPersonalizeFlows(copiedFlows)
+      }
+
+      // Reset copy flow states
+      setCopyFlowIdStaff('')
+      setCopyFlowSequences([])
+      setCopyFlowSelectedId('')
+
+      await Swal.fire({
+        icon: 'success',
+        title: 'Flows Copied!',
+        text: `${copiedFlows.length} flows have been copied successfully.`,
+        timer: 2000,
+        showConfirmButton: false,
+      })
+    } catch (error) {
+      console.error('Error copying flows:', error)
+      await Swal.fire({
+        icon: 'error',
+        title: 'Failed to Copy Flows',
+        text: 'Failed to copy flows from the selected sequence.',
+      })
+    } finally {
+      setCopyFlowLoading(false)
+    }
+  }
+
   const handleCreatePersonalize = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -1536,6 +1652,9 @@ export default function Sequences() {
                     setShowCreateModal(false)
                     resetForm()
                     setTempFlows([])
+                    setCopyFlowIdStaff('')
+                    setCopyFlowSequences([])
+                    setCopyFlowSelectedId('')
                   }}
                   className="text-gray-400 hover:text-gray-600 text-2xl"
                 >
@@ -1661,6 +1780,62 @@ export default function Sequences() {
                   </div>
                 </div>
 
+                {/* Copy Flow Section */}
+                <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <h4 className="text-lg font-bold text-blue-700 mb-3">📋 Copy Flow from Staff</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">ID Staff (Email)</label>
+                      <input
+                        type="email"
+                        value={copyFlowIdStaff}
+                        onChange={(e) => setCopyFlowIdStaff(e.target.value)}
+                        placeholder="staff@example.com"
+                        className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Select Broadcast</label>
+                      <select
+                        value={copyFlowSelectedId}
+                        onChange={(e) => setCopyFlowSelectedId(e.target.value)}
+                        className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={copyFlowSequences.length === 0}
+                      >
+                        <option value="">
+                          {copyFlowLoading ? 'Searching...' : copyFlowSequences.length === 0 ? 'Enter email & search' : 'Select Broadcast'}
+                        </option>
+                        {copyFlowSequences.map((seq) => (
+                          <option key={seq.id} value={seq.id}>
+                            {seq.name} ({seq.schedule_date || 'No date'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSearchSequencesByEmail(copyFlowIdStaff, 'broadcast')}
+                        disabled={copyFlowLoading || !copyFlowIdStaff.trim()}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {copyFlowLoading ? '...' : 'Search'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyFlows(copyFlowSelectedId, 'broadcast')}
+                        disabled={copyFlowLoading || !copyFlowSelectedId}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Copy Flows
+                      </button>
+                    </div>
+                  </div>
+                  {copyFlowSequences.length > 0 && (
+                    <p className="text-xs text-blue-600 mt-2">Found {copyFlowSequences.length} broadcast(s)</p>
+                  )}
+                </div>
+
                 {/* Broadcast Flow Grid */}
                 <div className="mt-6">
                   <h4 className="text-lg font-bold text-gray-900 mb-4">Broadcast Flow</h4>
@@ -1698,6 +1873,9 @@ export default function Sequences() {
                       setShowCreateModal(false)
                       resetForm()
                       setTempFlows([])
+                      setCopyFlowIdStaff('')
+                      setCopyFlowSequences([])
+                      setCopyFlowSelectedId('')
                     }}
                     className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-medium transition-colors"
                   >
@@ -1729,6 +1907,9 @@ export default function Sequences() {
                     setShowPersonalizeModal(false)
                     resetForm()
                     setTempPersonalizeFlows([])
+                    setCopyFlowIdStaff('')
+                    setCopyFlowSequences([])
+                    setCopyFlowSelectedId('')
                   }}
                   className="text-gray-400 hover:text-gray-600 text-2xl"
                 >
@@ -1856,6 +2037,62 @@ export default function Sequences() {
                   </div>
                 </div>
 
+                {/* Copy Flow Section for Personalize */}
+                <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                  <h4 className="text-lg font-bold text-purple-700 mb-3">📋 Copy Flow from Staff</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">ID Staff (Email)</label>
+                      <input
+                        type="email"
+                        value={copyFlowIdStaff}
+                        onChange={(e) => setCopyFlowIdStaff(e.target.value)}
+                        placeholder="staff@example.com"
+                        className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Select Personalize</label>
+                      <select
+                        value={copyFlowSelectedId}
+                        onChange={(e) => setCopyFlowSelectedId(e.target.value)}
+                        className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        disabled={copyFlowSequences.length === 0}
+                      >
+                        <option value="">
+                          {copyFlowLoading ? 'Searching...' : copyFlowSequences.length === 0 ? 'Enter email & search' : 'Select Personalize'}
+                        </option>
+                        {copyFlowSequences.map((seq) => (
+                          <option key={seq.id} value={seq.id}>
+                            {seq.name} ({seq.schedule_date || 'No date'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSearchSequencesByEmail(copyFlowIdStaff, 'personalize')}
+                        disabled={copyFlowLoading || !copyFlowIdStaff.trim()}
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {copyFlowLoading ? '...' : 'Search'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyFlows(copyFlowSelectedId, 'personalize')}
+                        disabled={copyFlowLoading || !copyFlowSelectedId}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Copy Flows
+                      </button>
+                    </div>
+                  </div>
+                  {copyFlowSequences.length > 0 && (
+                    <p className="text-xs text-purple-600 mt-2">Found {copyFlowSequences.length} personalize(s)</p>
+                  )}
+                </div>
+
                 {/* Personalize Flow Grid - 100 flows in 10x10 grid */}
                 <div className="mt-6">
                   <div className="flex items-center justify-between mb-4">
@@ -1901,6 +2138,9 @@ export default function Sequences() {
                       setShowPersonalizeModal(false)
                       resetForm()
                       setTempPersonalizeFlows([])
+                      setCopyFlowIdStaff('')
+                      setCopyFlowSequences([])
+                      setCopyFlowSelectedId('')
                     }}
                     className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-medium transition-colors"
                   >
