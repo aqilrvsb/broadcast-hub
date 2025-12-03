@@ -95,9 +95,12 @@ export default function DeviceSettings() {
 
   const loadDevices = async () => {
     try {
+      if (!user?.id) return
+
       const { data, error } = await supabase
         .from('device_setting')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error
