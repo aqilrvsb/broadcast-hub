@@ -48,6 +48,8 @@ type BroadcastSummary = {
     cancelled: number
     total_leads: number
     success_rate: string
+    response: number
+    response_percentage: string
   }
   step_progress: {
     step: number
@@ -61,6 +63,8 @@ type BroadcastSummary = {
     failed_percentage: string
     remaining: number
     remaining_percentage: string
+    response: number
+    response_percentage: string
     progress: string
   }[]
 }
@@ -2387,7 +2391,7 @@ export default function Sequences() {
               ) : summaryData ? (
                 <div className="p-6">
                   {/* Overall Statistics */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
                     <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
                       <p className="text-xs text-gray-600 font-medium uppercase">Should Send</p>
                       <p className="text-3xl font-bold text-gray-900">{summaryData.overall.should_send}</p>
@@ -2407,6 +2411,11 @@ export default function Sequences() {
                       <p className="text-xs text-yellow-600 font-medium uppercase">Remaining</p>
                       <p className="text-3xl font-bold text-yellow-700">{summaryData.overall.remaining}</p>
                       <p className="text-xs text-yellow-500">{summaryData.overall.remaining_percentage}%</p>
+                    </div>
+                    <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-4 text-center">
+                      <p className="text-xs text-cyan-600 font-medium uppercase">Response</p>
+                      <p className="text-3xl font-bold text-cyan-700">{summaryData.overall.response || 0}</p>
+                      <p className="text-xs text-cyan-500">{summaryData.overall.response_percentage || '0.0'}%</p>
                     </div>
                     <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 text-center">
                       <p className="text-xs text-purple-600 font-medium uppercase">Total Leads</p>
@@ -2459,6 +2468,7 @@ export default function Sequences() {
                             <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase">Sent</th>
                             <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase">Failed</th>
                             <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase">Remaining</th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase">Response</th>
                             <th className="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase w-28">Progress</th>
                           </tr>
                         </thead>
@@ -2532,6 +2542,10 @@ export default function Sequences() {
                                   {step.remaining}
                                 </button>
                                 <span className="text-xs text-yellow-500 block">{step.remaining_percentage}%</span>
+                              </td>
+                              <td className="px-3 py-3 text-center">
+                                <span className="font-bold text-cyan-600">{step.response || 0}</span>
+                                <span className="text-xs text-cyan-500 block">{step.response_percentage || '0.0'}%</span>
                               </td>
                               <td className="px-3 py-3">
                                 <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden">

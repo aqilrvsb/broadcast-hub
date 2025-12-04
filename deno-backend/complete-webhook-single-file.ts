@@ -672,23 +672,26 @@ async function handleBroadcastSummary(request: Request): Promise<Response> {
 
     // Calculate overall statistics
     const totalMessages = messages.length;
-    const sentMessages = messages.filter(m => m.status === "sent").length;
-    const failedMessages = messages.filter(m => m.status === "failed").length;
-    const scheduledRemaining = messages.filter(m => m.status === "scheduled").length;
-    const cancelledMessages = messages.filter(m => m.status === "cancelled").length;
+    const sentMessages = messages.filter((m: { status: string }) => m.status === "sent").length;
+    const failedMessages = messages.filter((m: { status: string }) => m.status === "failed").length;
+    const scheduledRemaining = messages.filter((m: { status: string }) => m.status === "scheduled").length;
+    const cancelledMessages = messages.filter((m: { status: string }) => m.status === "cancelled").length;
+    const responseMessages = messages.filter((m: { response?: string | null }) => m.response !== null && m.response !== undefined).length;
 
     const sentPercentage = totalMessages > 0 ? ((sentMessages / totalMessages) * 100).toFixed(1) : "0.0";
     const failedPercentage = totalMessages > 0 ? ((failedMessages / totalMessages) * 100).toFixed(1) : "0.0";
     const remainingPercentage = totalMessages > 0 ? ((scheduledRemaining / totalMessages) * 100).toFixed(1) : "0.0";
     const successRate = totalMessages > 0 ? ((sentMessages / totalMessages) * 100).toFixed(1) : "0.0";
+    const responsePercentage = sentMessages > 0 ? ((responseMessages / sentMessages) * 100).toFixed(1) : "0.0";
 
     // Calculate step-wise progress
-    const stepProgress = (flows || []).map(flow => {
-      const flowMessages = messages.filter(m => m.flow_number === flow.flow_number);
+    const stepProgress = (flows || []).map((flow: { flow_number: number; message: string; image_url: string | null }) => {
+      const flowMessages = messages.filter((m: { flow_number: number }) => m.flow_number === flow.flow_number);
       const shouldSend = flowMessages.length;
-      const sent = flowMessages.filter(m => m.status === "sent").length;
-      const failed = flowMessages.filter(m => m.status === "failed").length;
-      const remaining = flowMessages.filter(m => m.status === "scheduled").length;
+      const sent = flowMessages.filter((m: { status: string }) => m.status === "sent").length;
+      const failed = flowMessages.filter((m: { status: string }) => m.status === "failed").length;
+      const remaining = flowMessages.filter((m: { status: string }) => m.status === "scheduled").length;
+      const responded = flowMessages.filter((m: { response?: string | null }) => m.response !== null && m.response !== undefined).length;
 
       return {
         step: flow.flow_number,
@@ -701,6 +704,8 @@ async function handleBroadcastSummary(request: Request): Promise<Response> {
         failed_percentage: shouldSend > 0 ? ((failed / shouldSend) * 100).toFixed(1) : "0.0",
         remaining: remaining,
         remaining_percentage: shouldSend > 0 ? ((remaining / shouldSend) * 100).toFixed(1) : "0.0",
+        response: responded,
+        response_percentage: sent > 0 ? ((responded / sent) * 100).toFixed(1) : "0.0",
         progress: shouldSend > 0 ? ((sent / shouldSend) * 100).toFixed(1) : "0.0",
       };
     });
@@ -726,6 +731,8 @@ async function handleBroadcastSummary(request: Request): Promise<Response> {
         cancelled: cancelledMessages,
         total_leads: totalLeads,
         success_rate: successRate,
+        response: responseMessages,
+        response_percentage: responsePercentage,
       },
       step_progress: stepProgress,
     };
@@ -781,6 +788,14 @@ serve(async (request: Request) => {
       return await handleBroadcastSummary(request);
     }
 
+    // Webhook pattern: /:deviceId/:webhookId (for incoming messages from WhatsApp Center)
+    const webhookMatch = path.match(/^\/([^\/]+)\/([^\/]+)$/);
+    if (webhookMatch) {
+      const deviceId = webhookMatch[1];
+      const webhookId = webhookMatch[2];
+      return await handleIncomingWebhook(request, deviceId, webhookId, method);
+    }
+
     // 404 for unknown routes
     return new Response(
       JSON.stringify({ success: false, error: "Not found" }),
@@ -795,6 +810,145 @@ serve(async (request: Request) => {
   }
 });
 
+/**
+ * Handle incoming webhook from WhatsApp Center
+ * When a customer replies, find the most recent scheduled message sent to them and record the response
+ */
+async function handleIncomingWebhook(
+  request: Request,
+  deviceId: string,
+  webhookId: string,
+  method: string
+): Promise<Response> {
+  console.log(`\n📥 Webhook: ${method} /${deviceId}/${webhookId}`);
+
+  try {
+    // Verify device exists
+    const { data: device, error: deviceError } = await supabaseAdmin
+      .from("device_setting")
+      .select("*")
+      .eq("device_id", deviceId)
+      .eq("webhook_id", webhookId)
+      .single();
+
+    if (deviceError || !device) {
+      console.log(`❌ Device not found: ${deviceId}/${webhookId}`);
+      return new Response(
+        JSON.stringify({ success: false, error: "Device not found or invalid webhook" }),
+        { status: 404, headers: corsHeaders }
+      );
+    }
+
+    console.log(`✅ Device found: ${device.device_id}`);
+
+    // Handle GET request (webhook verification)
+    if (method === "GET") {
+      const url = new URL(request.url);
+      const challenge = url.searchParams.get("hub.challenge");
+      if (challenge) {
+        console.log(`✅ Returning challenge for webhook verification`);
+        return new Response(challenge, { status: 200, headers: corsHeaders });
+      }
+      return new Response(
+        JSON.stringify({ success: true, message: "Webhook active", device_id: device.device_id }),
+        { status: 200, headers: corsHeaders }
+      );
+    }
+
+    // Handle POST request (incoming message)
+    if (method === "POST") {
+      const rawPayload = await request.json();
+      console.log(`📨 Incoming message payload:`, JSON.stringify(rawPayload, null, 2));
+
+      // Parse WhatsApp Center webhook format
+      // Expected format: { message_id, device_id, sender, message, timestamp, ... }
+      const senderPhone = rawPayload.sender || rawPayload.from || rawPayload.phone || rawPayload.number;
+      const messageText = rawPayload.message || rawPayload.text || rawPayload.body || "";
+
+      if (!senderPhone) {
+        console.log(`⚠️ No sender phone in webhook payload`);
+        return new Response(
+          JSON.stringify({ success: true, message: "No sender phone" }),
+          { status: 200, headers: corsHeaders }
+        );
+      }
+
+      // Normalize phone number (remove +, spaces, etc.)
+      const normalizedPhone = senderPhone.replace(/[^0-9]/g, "");
+      console.log(`📱 Incoming from: ${normalizedPhone}, Message: ${messageText.substring(0, 50)}...`);
+
+      // Find the most recent scheduled message sent to this phone number from this device
+      // Look for messages that were sent (status = 'sent') within the last 7 days
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const { data: recentMessages, error: messagesError } = await supabaseAdmin
+        .from("sequence_scheduled_messages")
+        .select("*")
+        .eq("device_id", device.id)
+        .eq("status", "sent")
+        .is("response", null) // Only get messages without response
+        .gte("scheduled_time", sevenDaysAgo.toISOString())
+        .order("scheduled_time", { ascending: false });
+
+      if (messagesError) {
+        console.error(`❌ Error fetching messages:`, messagesError);
+        return new Response(
+          JSON.stringify({ success: false, error: "Database error" }),
+          { status: 500, headers: corsHeaders }
+        );
+      }
+
+      // Find message matching this phone number
+      const matchingMessage = recentMessages?.find((msg: { prospect_num: string }) => {
+        const msgPhone = msg.prospect_num.replace(/[^0-9]/g, "");
+        return msgPhone === normalizedPhone ||
+               normalizedPhone.endsWith(msgPhone) ||
+               msgPhone.endsWith(normalizedPhone);
+      });
+
+      if (matchingMessage) {
+        console.log(`✅ Found matching scheduled message: ${matchingMessage.id}`);
+
+        // Update the message with the response
+        const { error: updateError } = await supabaseAdmin
+          .from("sequence_scheduled_messages")
+          .update({
+            response: messageText,
+            response_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", matchingMessage.id);
+
+        if (updateError) {
+          console.error(`❌ Error updating response:`, updateError);
+        } else {
+          console.log(`✅ Response recorded for message ${matchingMessage.id}`);
+        }
+      } else {
+        console.log(`⚠️ No matching scheduled message found for ${normalizedPhone}`);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: "Webhook processed" }),
+        { status: 200, headers: corsHeaders }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({ success: false, error: "Method not allowed" }),
+      { status: 405, headers: corsHeaders }
+    );
+  } catch (error) {
+    console.error(`❌ Webhook error:`, error);
+    return new Response(
+      JSON.stringify({ success: false, error: String(error) }),
+      { status: 500, headers: corsHeaders }
+    );
+  }
+}
+
 console.log(`🚀 Broadcast Hub Deno Backend Started!`);
 console.log(`📍 Supabase URL: ${SUPABASE_URL}`);
 console.log(`🔗 WhatsApp Center API: ${WHACENTER_API_URL}`);
+console.log(`📥 Webhook pattern: /:deviceId/:webhookId`);
