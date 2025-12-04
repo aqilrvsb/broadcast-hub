@@ -222,7 +222,7 @@ function randomizeMessage(message: string, prospectName: string = ''): string {
  *    - Base time = schedule_date + schedule_time (Malaysia timezone)
  *    - Flow delays = cumulative delay_hours
  *    - Lead gaps = random seconds between min_delay and max_delay (cumulative)
- * 5. Save to database in Malaysia timezone, send to WhatsApp Center in Indonesia timezone
+ * 5. Save to database in Malaysia timezone, send to WhatsApp Center in Malaysia timezone (UTC+8)
  */
 async function handleBroadcastLock(request: Request): Promise<Response> {
   console.log(`\n🔒 === BROADCAST LOCK PROCESSING START ===`);
@@ -393,14 +393,14 @@ async function handleBroadcastLock(request: Request): Promise<Response> {
           (cumulativeLeadGapSeconds * 1000)
         );
 
-        const whacenterTimeIndonesia = new Date(scheduledTimeUTC.getTime() + (7 * 60 * 60 * 1000));
+        const whacenterTimeMalaysia = new Date(scheduledTimeUTC.getTime() + (8 * 60 * 60 * 1000));
         const actualDeliveryTimeMalaysia = new Date(scheduledTimeUTC.getTime() + (8 * 60 * 60 * 1000));
 
-        const scheduleString = whacenterTimeIndonesia.toISOString()
+        const scheduleString = whacenterTimeMalaysia.toISOString()
           .replace('T', ' ')
           .substring(0, 19);
 
-        console.log(`   📅 Flow ${flow.flow_number}: WhatsApp=${scheduleString} (UTC+7), DB=${actualDeliveryTimeMalaysia.toISOString()} (UTC+8)`);
+        console.log(`   📅 Flow ${flow.flow_number}: WhatsApp=${scheduleString} (UTC+8), DB=${actualDeliveryTimeMalaysia.toISOString()} (UTC+8)`);
 
         try {
           const randomizedMessage = randomizeMessage(flow.message, lead.prospect_name || '');
@@ -477,18 +477,17 @@ async function handleBroadcastLock(request: Request): Promise<Response> {
             (cumulativeDelayHours * 60 * 60 * 1000)
           );
 
-          // WhatsApp Center uses Indonesia timezone (UTC+7)
+          // WhatsApp Center uses Malaysia timezone (UTC+8)
           // Database stores Malaysia timezone (UTC+8)
-          // WhatsApp Center time = actual delivery time - 1 hour
-          const whacenterTimeIndonesia = new Date(scheduledTimeUTC.getTime() + (7 * 60 * 60 * 1000));
+          const whacenterTimeMalaysia = new Date(scheduledTimeUTC.getTime() + (8 * 60 * 60 * 1000));
           const actualDeliveryTimeMalaysia = new Date(scheduledTimeUTC.getTime() + (8 * 60 * 60 * 1000));
 
-          // Format for WhatsApp Center API: YYYY-MM-DD HH:MM:SS (Indonesia time)
-          const scheduleString = whacenterTimeIndonesia.toISOString()
+          // Format for WhatsApp Center API: YYYY-MM-DD HH:MM:SS (Malaysia time)
+          const scheduleString = whacenterTimeMalaysia.toISOString()
             .replace('T', ' ')
             .substring(0, 19);
 
-          console.log(`   📅 Flow ${flow.flow_number}: WhatsApp=${scheduleString} (UTC+7), DB=${actualDeliveryTimeMalaysia.toISOString()} (UTC+8), cumulative delay: ${cumulativeDelayHours}h`);
+          console.log(`   📅 Flow ${flow.flow_number}: WhatsApp=${scheduleString} (UTC+8), DB=${actualDeliveryTimeMalaysia.toISOString()} (UTC+8), cumulative delay: ${cumulativeDelayHours}h`);
 
           try {
             // Apply anti-ban message randomization with prospect name
