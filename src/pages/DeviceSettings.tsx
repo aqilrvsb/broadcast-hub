@@ -375,11 +375,31 @@ export default function DeviceSettings() {
         if (addDeviceData.success && addDeviceData.data && addDeviceData.data.device && addDeviceData.data.device.device_id) {
           const whatsappCenterDeviceId = addDeviceData.data.device.device_id
 
-          // Update device with instance (device_id) - no webhook
+          // Generate webhook_id
+          const webhookId = crypto.randomUUID()
+
+          // Build webhook URL: https://broadcast-hub.deno.dev/{device_id}/{webhook_id}
+          const webhookUrl = `https://broadcast-hub.deno.dev/${autoDeviceId}/${webhookId}`
+
+          // Register webhook with WhatsApp Center
+          setLoadingMessage('Registering webhook...')
+
+          const setWebhookResponse = await fetch(
+            `${apiBase}?endpoint=setWebhook&device_id=${encodeURIComponent(whatsappCenterDeviceId)}&webhook=${encodeURIComponent(webhookUrl)}`,
+            {
+              method: 'GET'
+            }
+          )
+
+          const setWebhookData = await setWebhookResponse.json()
+          console.log('Set webhook response:', setWebhookData)
+
+          // Update device with instance and webhook_id
           await supabase
             .from('device_setting')
             .update({
               instance: whatsappCenterDeviceId,
+              webhook_id: webhookId,
               updated_at: new Date().toISOString(),
             })
             .eq('id', deviceId)
@@ -401,8 +421,8 @@ export default function DeviceSettings() {
           await Swal.fire({
             icon: 'success',
             title: 'Device Created Successfully!',
-            text: 'Device added to WhatsApp Center.',
-            timer: 3000,
+            html: `Device added to WhatsApp Center.<br><br><small>Webhook registered: ${webhookUrl}</small>`,
+            timer: 4000,
             showConfirmButton: false,
           })
 
