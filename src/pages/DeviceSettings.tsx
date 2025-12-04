@@ -955,41 +955,18 @@ export default function DeviceSettings() {
               <h3 className="text-2xl font-bold text-gray-900 mb-6">Add New Device</h3>
 
               <form onSubmit={handleAddDevice} className="space-y-4">
-                {/* Instance Input - Optional for existing devices */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Instance ID (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.instance}
-                    onChange={(e) => setFormData({ ...formData, instance: e.target.value })}
-                    placeholder="e.g., 58f97e03-2951-4f6b-850a-4f1dd7d4021a"
-                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {formData.instance ? (
-                      <span className="text-purple-600">Using existing instance - will skip WhatsApp Center API</span>
-                    ) : (
-                      'Leave empty to create new device via WhatsApp Center API'
-                    )}
-                  </p>
-                </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Device ID (Auto-generated)</label>
                     <input
                       type="text"
-                      value={generateDeviceId(!!formData.instance)}
+                      value={generateDeviceId(false)}
                       className="w-full bg-gray-100 border border-gray-300 text-gray-600 rounded-lg px-4 py-2 cursor-not-allowed"
                       readOnly
                       disabled
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Format: {formData.instance ? <span className="text-purple-600 font-medium">EV</span> : <span className="text-orange-600 font-medium">RV</span>} + ID Staff + (count)
-                      <br />
-                      <span className="text-purple-600">EV</span> = Existing, <span className="text-orange-600">RV</span> = Register New
+                      Format: RV + ID Staff + (count)
                     </p>
                   </div>
 
