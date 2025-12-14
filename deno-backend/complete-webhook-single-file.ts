@@ -60,16 +60,23 @@ const ZERO_WIDTH_CHARS = [
 
 /**
  * Process spintax patterns like {option1|option2|option3}
- * Example: "{Cik|Puan|Tuan} {name}" -> "Cik Ahmad"
+ * Also supports template variables with double braces: {{name}}, {{nama}}
+ * Example: "{Cik|Puan|Tuan} {{name}}" -> "Cik Ahmad"
  */
 function processSpintax(text: string, variables: Record<string, string> = {}): string {
-  // First replace variables like {name}, {prospect_name}
   let result = text;
+
+  // First replace double-brace variables like {{name}}, {{prospect_name}}
+  for (const [key, value] of Object.entries(variables)) {
+    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'gi'), value);
+  }
+
+  // Then replace single-brace variables like {name}, {prospect_name}
   for (const [key, value] of Object.entries(variables)) {
     result = result.replace(new RegExp(`\\{${key}\\}`, 'gi'), value);
   }
 
-  // Then process spintax {option1|option2|option3}
+  // Finally process spintax {option1|option2|option3}
   const spintaxRegex = /\{([^}]+)\}/g;
   result = result.replace(spintaxRegex, (match, content) => {
     // Check if it contains pipe (spintax) or is a variable that wasn't replaced
