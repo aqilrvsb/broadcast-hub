@@ -510,7 +510,7 @@ export default function Sequences() {
     const result = await Swal.fire({
       icon: 'warning',
       title: 'Delete Broadcast?',
-      text: 'This will also delete all flows and enrollments for this sequence. This action cannot be undone.',
+      text: 'This will also delete all flows, enrollments, and scheduled messages for this sequence. This action cannot be undone.',
       showCancelButton: true,
       confirmButtonText: 'Yes, delete it',
       cancelButtonText: 'Cancel',
@@ -520,6 +520,37 @@ export default function Sequences() {
     if (!result.isConfirmed) return
 
     try {
+      // 1. Delete scheduled messages first (references enrollments and sequences)
+      const { error: scheduledError } = await supabase
+        .from('sequence_scheduled_messages')
+        .delete()
+        .eq('sequence_id', id)
+
+      if (scheduledError) {
+        console.error('Error deleting scheduled messages:', scheduledError)
+      }
+
+      // 2. Delete enrollments (references sequences)
+      const { error: enrollmentsError } = await supabase
+        .from('sequence_enrollments')
+        .delete()
+        .eq('sequence_id', id)
+
+      if (enrollmentsError) {
+        console.error('Error deleting enrollments:', enrollmentsError)
+      }
+
+      // 3. Delete flows (references sequences)
+      const { error: flowsError } = await supabase
+        .from('sequence_flows')
+        .delete()
+        .eq('sequence_id', id)
+
+      if (flowsError) {
+        console.error('Error deleting flows:', flowsError)
+      }
+
+      // 4. Finally delete the sequence itself
       const { error } = await supabase
         .from('sequences')
         .delete()
