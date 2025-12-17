@@ -2792,8 +2792,8 @@ export default function Sequences() {
                     dangerouslySetInnerHTML={{
                       __html: flowFormData.message
                         ? flowFormData.message
-                            // Template variables: {{name}}, {{nama}}, etc - highlight in purple
-                            .replace(/\{\{(\w+)\}\}/g, '<span class="bg-purple-100 text-purple-700 px-1 rounded font-medium">{{$1}}</span>')
+                            // Template variables: {name}, {nama}, etc - highlight in purple (single brace only, not spintax with |)
+                            .replace(/\{(\w+)\}/g, '<span class="bg-purple-100 text-purple-700 px-1 rounded font-medium">{$1}</span>')
                             // Bold: *text*
                             .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
                             // Italic: _text_
@@ -2807,7 +2807,7 @@ export default function Sequences() {
                         : '<span class="text-gray-400">Your formatted message will appear here...</span>'
                     }}
                   />
-                  <p className="text-xs text-gray-500 mt-2">Use <code className="bg-purple-100 text-purple-700 px-1 rounded">{'{{name}}'}</code> to insert prospect name</p>
+                  <p className="text-xs text-gray-500 mt-2">Use <code className="bg-purple-100 text-purple-700 px-1 rounded">{'{name}'}</code> to insert prospect name</p>
                 </div>
 
                 <div>
@@ -3034,8 +3034,8 @@ export default function Sequences() {
                     dangerouslySetInnerHTML={{
                       __html: flowFormData.message
                         ? flowFormData.message
-                            // Template variables: {{name}}, {{nama}}, etc - highlight in purple
-                            .replace(/\{\{(\w+)\}\}/g, '<span class="bg-purple-100 text-purple-700 px-1 rounded font-medium">{{$1}}</span>')
+                            // Template variables: {name}, {nama}, etc - highlight in purple (single brace only, not spintax with |)
+                            .replace(/\{(\w+)\}/g, '<span class="bg-purple-100 text-purple-700 px-1 rounded font-medium">{$1}</span>')
                             .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
                             .replace(/_([^_]+)_/g, '<em>$1</em>')
                             .replace(/~([^~]+)~/g, '<del>$1</del>')
@@ -3044,7 +3044,7 @@ export default function Sequences() {
                         : '<span class="text-gray-400">Your formatted message will appear here...</span>'
                     }}
                   />
-                  <p className="text-xs text-gray-500 mt-2">Use <code className="bg-purple-100 text-purple-700 px-1 rounded">{'{{name}}'}</code> to insert prospect name</p>
+                  <p className="text-xs text-gray-500 mt-2">Use <code className="bg-purple-100 text-purple-700 px-1 rounded">{'{name}'}</code> to insert prospect name</p>
                 </div>
 
                 <div>
