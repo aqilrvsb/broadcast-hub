@@ -447,6 +447,15 @@ export default function Sequences() {
 
       if (error) throw error
       setSequenceFlows(flowsData || [])
+
+      // Set flow count based on max flow number (minimum 31)
+      if (flowsData && flowsData.length > 0) {
+        const maxFlowNum = Math.max(...flowsData.map(f => f.flow_number))
+        setBroadcastFlowCount(Math.max(31, maxFlowNum))
+      } else {
+        setBroadcastFlowCount(31)
+      }
+
       setShowEditModal(true)
     } catch (error) {
       console.error('Error loading flows:', error)
