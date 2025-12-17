@@ -1113,16 +1113,37 @@ export default function Sequences() {
   const handleCopyFlows = async (sequenceId: string, targetType: 'broadcast' | 'personalize') => {
     if (!sequenceId) return
 
+    // Confirm before copying
+    const confirmResult = await Swal.fire({
+      title: 'Copy & Create New?',
+      text: `This will create a new ${targetType} with all the flows from the selected sequence.`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Copy & Create',
+      cancelButtonText: 'Cancel',
+    })
+
+    if (!confirmResult.isConfirmed) return
+
     setCopyFlowLoading(true)
     try {
+      // Fetch the original sequence details
+      const { data: originalSequence, error: seqError } = await supabase
+        .from('sequences')
+        .select('*')
+        .eq('id', sequenceId)
+        .single()
+
+      if (seqError || !originalSequence) throw seqError || new Error('Sequence not found')
+
       // Fetch flows from the selected sequence
-      const { data: flowsData, error } = await supabase
+      const { data: flowsData, error: flowsError } = await supabase
         .from('sequence_flows')
         .select('*')
         .eq('sequence_id', sequenceId)
         .order('flow_number', { ascending: true })
 
-      if (error) throw error
+      if (flowsError) throw flowsError
 
       if (!flowsData || flowsData.length === 0) {
         await Swal.fire({
@@ -1133,10 +1154,34 @@ export default function Sequences() {
         return
       }
 
-      // Map flows to temp flows format
-      const copiedFlows: SequenceFlow[] = flowsData.map(flow => ({
-        id: `temp-${flow.flow_number}`,
-        sequence_id: '',
+      // Create new sequence (copy of original)
+      const newSequenceData = {
+        user_id: user?.id,
+        name: `${originalSequence.name} (Copy)`,
+        niche: originalSequence.niche || '',
+        trigger: originalSequence.trigger || 'manual',
+        description: originalSequence.description || '',
+        schedule_time: originalSequence.schedule_time || '09:00',
+        min_delay: originalSequence.min_delay || 5,
+        max_delay: originalSequence.max_delay || 15,
+        status: 'inactive',
+        device_id: formData.device_id || originalSequence.device_id,
+        category_id: null, // Don't copy category - user should select their own
+        schedule_date: null, // Don't copy date - user should set new date
+        sequence_type: targetType,
+      }
+
+      const { data: newSequence, error: createError } = await supabase
+        .from('sequences')
+        .insert(newSequenceData)
+        .select()
+        .single()
+
+      if (createError || !newSequence) throw createError || new Error('Failed to create sequence')
+
+      // Copy all flows to the new sequence
+      const newFlows = flowsData.map(flow => ({
+        sequence_id: newSequence.id,
         flow_number: flow.flow_number,
         step_trigger: flow.step_trigger || '',
         next_trigger: flow.next_trigger || null,
@@ -1144,35 +1189,38 @@ export default function Sequences() {
         message: flow.message,
         image_url: flow.image_url,
         is_end: flow.is_end,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
       }))
 
-      // Set to appropriate temp flows based on target type
-      if (targetType === 'broadcast') {
-        setTempFlows(copiedFlows)
-      } else {
-        setTempPersonalizeFlows(copiedFlows)
-      }
+      const { error: flowsInsertError } = await supabase
+        .from('sequence_flows')
+        .insert(newFlows)
+
+      if (flowsInsertError) throw flowsInsertError
 
       // Reset copy flow states
       setCopyFlowIdStaff('')
       setCopyFlowSequences([])
       setCopyFlowSelectedId('')
 
+      // Close modal and refresh list
+      setShowCreateModal(false)
+      setShowPersonalizeModal(false)
+      resetForm()
+      loadSequences()
+
       await Swal.fire({
         icon: 'success',
-        title: 'Flows Copied!',
-        text: `${copiedFlows.length} flows have been copied successfully.`,
-        timer: 2000,
+        title: 'Copied Successfully!',
+        text: `Created new ${targetType} "${newSequenceData.name}" with ${flowsData.length} flows.`,
+        timer: 3000,
         showConfirmButton: false,
       })
     } catch (error) {
       console.error('Error copying flows:', error)
       await Swal.fire({
         icon: 'error',
-        title: 'Failed to Copy Flows',
-        text: 'Failed to copy flows from the selected sequence.',
+        title: 'Failed to Copy',
+        text: 'Failed to copy and create new sequence.',
       })
     } finally {
       setCopyFlowLoading(false)
@@ -1817,7 +1865,7 @@ export default function Sequences() {
                         type="email"
                         value={copyFlowIdStaff}
                         onChange={(e) => setCopyFlowIdStaff(e.target.value)}
-                        placeholder="staff@example.com"
+                        placeholder="e.g. SCHQ-S12"
                         className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -2087,7 +2135,7 @@ export default function Sequences() {
                         type="email"
                         value={copyFlowIdStaff}
                         onChange={(e) => setCopyFlowIdStaff(e.target.value)}
-                        placeholder="staff@example.com"
+                        placeholder="e.g. SCHQ-S12"
                         className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
                       />
                     </div>
