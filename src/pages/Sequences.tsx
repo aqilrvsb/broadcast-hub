@@ -1049,32 +1049,19 @@ export default function Sequences() {
   }
 
   // Copy Flow functions
-  const handleSearchSequencesByEmail = async (email: string, sequenceType: 'broadcast' | 'personalize') => {
-    if (!email.trim()) {
+  const handleSearchSequencesByEmail = async (staffId: string, sequenceType: 'broadcast' | 'personalize') => {
+    if (!staffId.trim()) {
       setCopyFlowSequences([])
       return
     }
 
     setCopyFlowLoading(true)
     try {
-      // First, find the user by email
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', email.trim())
-        .single()
-
-      if (userError || !userData) {
-        setCopyFlowSequences([])
-        setCopyFlowLoading(false)
-        return
-      }
-
-      // Fetch sequences for this user with the specified type
+      // Search sequences by user_id (staff ID) directly
       const { data: sequencesData, error: sequencesError } = await supabase
         .from('sequences')
         .select('*')
-        .eq('user_id', userData.id)
+        .eq('user_id', staffId.trim())
         .eq('sequence_type', sequenceType)
         .order('created_at', { ascending: false })
 
@@ -1791,7 +1778,7 @@ export default function Sequences() {
                   <h4 className="text-lg font-bold text-blue-700 mb-3">📋 Copy Flow from Staff</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">ID Staff (Email)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">ID Staff</label>
                       <input
                         type="email"
                         value={copyFlowIdStaff}
@@ -1809,7 +1796,7 @@ export default function Sequences() {
                         disabled={copyFlowSequences.length === 0}
                       >
                         <option value="">
-                          {copyFlowLoading ? 'Searching...' : copyFlowSequences.length === 0 ? 'Enter email & search' : 'Select Broadcast'}
+                          {copyFlowLoading ? 'Searching...' : copyFlowSequences.length === 0 ? 'Enter ID & search' : 'Select Broadcast'}
                         </option>
                         {copyFlowSequences.map((seq) => (
                           <option key={seq.id} value={seq.id}>
@@ -2061,7 +2048,7 @@ export default function Sequences() {
                   <h4 className="text-lg font-bold text-purple-700 mb-3">📋 Copy Flow from Staff</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">ID Staff (Email)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">ID Staff</label>
                       <input
                         type="email"
                         value={copyFlowIdStaff}
@@ -2079,7 +2066,7 @@ export default function Sequences() {
                         disabled={copyFlowSequences.length === 0}
                       >
                         <option value="">
-                          {copyFlowLoading ? 'Searching...' : copyFlowSequences.length === 0 ? 'Enter email & search' : 'Select Personalize'}
+                          {copyFlowLoading ? 'Searching...' : copyFlowSequences.length === 0 ? 'Enter ID & search' : 'Select Personalize'}
                         </option>
                         {copyFlowSequences.map((seq) => (
                           <option key={seq.id} value={seq.id}>
