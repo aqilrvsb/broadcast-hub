@@ -1057,17 +1057,51 @@ export default function Sequences() {
 
     setCopyFlowLoading(true)
     try {
-      // Search sequences by user_id (staff ID) directly
+      // First, find user by email (staff ID like SCHQ-S12)
+      const { data: userData, error: userError } = await supabase
+        .from('user')
+        .select('id')
+        .eq('email', staffId.trim())
+
+      if (userError) throw userError
+
+      if (!userData || userData.length === 0) {
+        setCopyFlowSequences([])
+        setCopyFlowLoading(false)
+        await Swal.fire({
+          icon: 'warning',
+          title: 'User Not Found',
+          text: `No user found with ID: ${staffId}`,
+          timer: 2000,
+          showConfirmButton: false,
+        })
+        return
+      }
+
+      // Get user UUID (take first match)
+      const userId = userData[0].id
+
+      // Search sequences by user_id UUID
       const { data: sequencesData, error: sequencesError } = await supabase
         .from('sequences')
         .select('*')
-        .eq('user_id', staffId.trim())
+        .eq('user_id', userId)
         .eq('sequence_type', sequenceType)
         .order('created_at', { ascending: false })
 
       if (sequencesError) throw sequencesError
 
       setCopyFlowSequences(sequencesData || [])
+
+      if (!sequencesData || sequencesData.length === 0) {
+        await Swal.fire({
+          icon: 'info',
+          title: 'No Sequences Found',
+          text: `No ${sequenceType} sequences found for this user.`,
+          timer: 2000,
+          showConfirmButton: false,
+        })
+      }
     } catch (error) {
       console.error('Error searching sequences:', error)
       setCopyFlowSequences([])
