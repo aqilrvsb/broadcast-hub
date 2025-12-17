@@ -128,6 +128,8 @@ export default function Sequences() {
   const [tempFlows, setTempFlows] = useState<SequenceFlow[]>([]) // For create modal
   const [tempPersonalizeFlows, setTempPersonalizeFlows] = useState<SequenceFlow[]>([]) // For personalize modal
   const [showMessagePreviewModal, setShowMessagePreviewModal] = useState(false)
+  const [broadcastFlowCount, setBroadcastFlowCount] = useState<number>(31) // Number of flows for broadcast
+  const [personalizeFlowCount, setPersonalizeFlowCount] = useState<number>(31) // Number of flows for personalize
 
   // Copy Flow states
   const [copyFlowIdStaff, setCopyFlowIdStaff] = useState('')
@@ -1842,9 +1844,22 @@ export default function Sequences() {
 
                 {/* Broadcast Flow Grid */}
                 <div className="mt-6">
-                  <h4 className="text-lg font-bold text-gray-900 mb-4">Broadcast Flow</h4>
-                  <div className="grid grid-cols-7 gap-2">
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map((flowNum) => (
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-bold text-gray-900">Broadcast Flow</h4>
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm text-gray-600">Total Flows:</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="500"
+                        value={personalizeFlowCount}
+                        onChange={(e) => setPersonalizeFlowCount(Math.min(500, Math.max(1, parseInt(e.target.value) || 31)))}
+                        className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-7 gap-2 max-h-96 overflow-y-auto">
+                    {Array.from({ length: personalizeFlowCount }, (_, i) => i + 1).map((flowNum) => (
                       <button
                         key={flowNum}
                         type="button"
@@ -2301,9 +2316,22 @@ export default function Sequences() {
 
                 {/* Broadcast Flow Grid */}
                 <div className="mt-6">
-                  <h4 className="text-lg font-bold text-gray-900 mb-4">Broadcast Flow</h4>
-                  <div className="grid grid-cols-7 gap-2">
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map((flowNum) => (
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-bold text-gray-900">Broadcast Flow</h4>
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm text-gray-600">Total Flows:</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="500"
+                        value={broadcastFlowCount}
+                        onChange={(e) => setBroadcastFlowCount(Math.min(500, Math.max(1, parseInt(e.target.value) || 31)))}
+                        className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-7 gap-2 max-h-96 overflow-y-auto">
+                    {Array.from({ length: broadcastFlowCount }, (_, i) => i + 1).map((flowNum) => (
                       <button
                         key={flowNum}
                         type="button"
@@ -3157,9 +3185,12 @@ export default function Sequences() {
 
                 {/* Flow Grid - Read-only */}
                 <div className="mb-6">
-                  <h4 className="text-lg font-bold text-gray-900 mb-4">Broadcast Flow</h4>
-                  <div className="grid grid-cols-7 gap-2">
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map((flowNum) => {
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-bold text-gray-900">Broadcast Flow</h4>
+                    <span className="text-sm text-gray-500">Total: {viewFlows.length} flows</span>
+                  </div>
+                  <div className="grid grid-cols-7 gap-2 max-h-96 overflow-y-auto">
+                    {Array.from({ length: Math.max(viewFlows.length, Math.max(...viewFlows.map(f => f.flow_number), 0)) }, (_, i) => i + 1).map((flowNum) => {
                       const flow = viewFlows.find(f => f.flow_number === flowNum)
                       const isSet = !!flow
                       return (
