@@ -649,6 +649,38 @@ async function handleBroadcastSummary(request: Request): Promise<Response> {
       );
     }
 
+    // AUTO-UPDATE: Check and update status based on Malaysia time
+    // If scheduled_time has passed and status is still 'scheduled', update to 'sent'
+    const nowUTC = new Date();
+    const nowMalaysia = new Date(nowUTC.getTime() + (8 * 60 * 60 * 1000));
+
+    const messagesToUpdate = (scheduledMessages || []).filter((m: { status: string; scheduled_time: string }) => {
+      if (m.status !== "scheduled") return false;
+      const scheduledTime = new Date(m.scheduled_time);
+      return scheduledTime <= nowMalaysia; // Time has passed
+    });
+
+    if (messagesToUpdate.length > 0) {
+      console.log(`📝 Auto-updating ${messagesToUpdate.length} messages to 'sent' status`);
+
+      // Update all past-due scheduled messages to 'sent'
+      const messageIds = messagesToUpdate.map((m: { id: string }) => m.id);
+      const { error: updateError } = await supabaseAdmin
+        .from("sequence_scheduled_messages")
+        .update({ status: "sent", updated_at: new Date().toISOString() })
+        .in("id", messageIds);
+
+      if (updateError) {
+        console.error("❌ Error auto-updating messages:", updateError);
+      } else {
+        console.log(`✅ Auto-updated ${messagesToUpdate.length} messages to 'sent'`);
+        // Update local array to reflect changes
+        messagesToUpdate.forEach((m: { status: string }) => {
+          m.status = "sent";
+        });
+      }
+    }
+
     // Get all flows for this sequence
     const { data: flows, error: flowsError } = await supabaseAdmin
       .from("sequence_flows")
@@ -677,7 +709,7 @@ async function handleBroadcastSummary(request: Request): Promise<Response> {
     const messages = scheduledMessages || [];
     const totalLeads = enrollments ? new Set(enrollments.map(e => e.prospect_num)).size : 0;
 
-    // Calculate overall statistics
+    // Calculate overall statistics (status already updated above)
     const totalMessages = messages.length;
     const sentMessages = messages.filter((m: { status: string }) => m.status === "sent").length;
     const failedMessages = messages.filter((m: { status: string }) => m.status === "failed").length;
@@ -691,7 +723,7 @@ async function handleBroadcastSummary(request: Request): Promise<Response> {
     const successRate = totalMessages > 0 ? ((sentMessages / totalMessages) * 100).toFixed(1) : "0.0";
     const responsePercentage = sentMessages > 0 ? ((responseMessages / sentMessages) * 100).toFixed(1) : "0.0";
 
-    // Calculate step-wise progress
+    // Calculate step-wise progress (status already updated above)
     const stepProgress = (flows || []).map((flow: { flow_number: number; message: string; image_url: string | null }) => {
       const flowMessages = messages.filter((m: { flow_number: number }) => m.flow_number === flow.flow_number);
       const shouldSend = flowMessages.length;
