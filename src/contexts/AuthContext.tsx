@@ -130,7 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           subscription_status: 'active',
           subscription_start: new Date().toISOString(),
           subscription_end: subscriptionEnd.toISOString(),
-          max_devices: 3,
+          max_devices: 10,
           role: 'user',
         })
 
