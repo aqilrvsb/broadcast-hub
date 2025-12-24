@@ -6,7 +6,10 @@
       "Bash(git commit -m \"$(cat <<''EOF''\nAdd Instance ID input for linking existing WhatsApp devices\n\n- Add optional Instance ID input in Add Device modal\n- If instance provided: Skip WhatsApp Center API calls, save directly\n- If instance empty: Create device via WhatsApp Center API (existing flow)\n- Device ID prefix changes: EV (Existing) vs RV (Register New)\n- Dynamic preview shows which mode will be used\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git push)",
       "Bash(git commit:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(git config:*)",
+      "Bash(npx vercel whoami)",
+      "Bash(vercel whoami:*)"
     ],
     "deny": [],
     "ask": []

@@ -96,6 +96,11 @@ export default function Login() {
           <p className="text-gray-600">Automate Your WhatsApp Conversations with AI</p>
         </div>
 
+        {/* Deployment Info - Shows Vercel account */}
+        <div className="text-center mb-4 text-xs text-gray-400">
+          <p>Vercel: <span className="font-medium text-gray-600">{import.meta.env.VITE_VERCEL_URL || window.location.host}</span></p>
+        </div>
+
         {/* Auth Card */}
         <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-200">
           {!isRegister ? (
